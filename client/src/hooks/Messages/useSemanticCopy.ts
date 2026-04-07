@@ -14,28 +14,35 @@ function isWithinMessage(node: Node): boolean {
 }
 
 function handleCopy(e: ClipboardEvent): void {
-  const selection = window.getSelection();
-  if (!selection || selection.isCollapsed) {
-    return;
+  try {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!isWithinMessage(range.commonAncestorContainer)) {
+      return;
+    }
+
+    const fragment = range.cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(fragment);
+
+    const rawHtml = div.innerHTML;
+    const cleanHtml = DOMPurify.sanitize(rawHtml, {
+      ALLOWED_TAGS: SEMANTIC_TAGS,
+      ALLOWED_ATTR: ['href', 'target'],
+    });
+    const plainText = selection.toString();
+
+    e.preventDefault();
+    e.clipboardData?.setData('text/html', cleanHtml);
+    e.clipboardData?.setData('text/plain', plainText);
+    console.log('[SemanticCopy] OK, html length:', cleanHtml.length);
+  } catch (err) {
+    console.error('[SemanticCopy] Error:', err);
   }
-
-  const range = selection.getRangeAt(0);
-  if (!isWithinMessage(range.commonAncestorContainer)) {
-    return;
-  }
-
-  const fragment = range.cloneContents();
-  const div = document.createElement('div');
-  div.appendChild(fragment);
-
-  const cleanHtml = DOMPurify.sanitize(div.innerHTML, {
-    ALLOWED_TAGS: SEMANTIC_TAGS,
-    ALLOWED_ATTR: ['href', 'target'],
-  });
-
-  e.preventDefault();
-  e.clipboardData?.setData('text/html', cleanHtml);
-  e.clipboardData?.setData('text/plain', selection.toString());
 }
 
 export default function useSemanticCopy(): void {
