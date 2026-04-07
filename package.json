@@ -1,6 +1,6 @@
 {
   "name": "LibreChat",
-  "version": "v0.8.4-rc1",
+  "version": "v0.8.4-rc1-simpleai.1",
   "description": "",
   "packageManager": "npm@11.10.0",
   "workspaces": [
@@ -185,5 +185,8 @@
       "admin/",
       "packages/"
     ]
+  },
+  "dependencies": {
+    "rimraf": "^6.1.3"
   }
 }

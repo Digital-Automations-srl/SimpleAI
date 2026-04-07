@@ -8,6 +8,7 @@ import type { TMessage } from 'librechat-data-provider';
 import type { ChatFormValues } from '~/common';
 import { ChatContext, AddedChatContext, useFileMapContext, ChatFormProvider } from '~/Providers';
 import { useAddedResponse, useResumeOnLoad, useAdaptiveSSE, useChatHelpers } from '~/hooks';
+import useSemanticCopy from '~/hooks/Messages/useSemanticCopy';
 import ConversationStarters from './Input/ConversationStarters';
 import { useGetMessagesByConvoId } from '~/data-provider';
 import MessagesView from './Messages/MessagesView';
@@ -51,6 +52,7 @@ function ChatView({ index = 0 }: { index?: number }) {
   const addedChatHelpers = useAddedResponse();
 
   useAdaptiveSSE(rootSubmission, chatHelpers, false, index);
+  useSemanticCopy();
 
   // Auto-resume if navigating back to conversation with active job
   // Wait for messages to load before resuming to avoid race condition

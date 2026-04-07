@@ -80,6 +80,7 @@
     "librechat-data-provider": "*",
     "lodash": "^4.17.23",
     "lucide-react": "^0.394.0",
+    "marked": "^16.4.2",
     "match-sorter": "^8.1.0",
     "mermaid": "^11.13.0",
     "micromark-extension-llm-math": "^3.1.0",
