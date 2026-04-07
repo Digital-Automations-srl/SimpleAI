@@ -124,19 +124,7 @@ git pull origin "$BRANCH" 2>&1 | tee -a "$LOG_FILE" || fail "GIT PULL" "git pull
 
 NEW_VERSION=$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)
 
-# ─── 3. Build ───────────────────────────────────────────────────────────────
-
-log "Build frontend in corso..."
-
-export NODE_OPTIONS="--max-old-space-size=6144"
-
-npm run smart-reinstall 2>&1 | tee -a "$LOG_FILE" || fail "BUILD" "npm run smart-reinstall fallito"
-
-npm run build:client 2>&1 | tee -a "$LOG_FILE" || fail "BUILD" "npm run build:client fallito"
-
-log "Build completata."
-
-# ─── 4. Restart container ───────────────────────────────────────────────────
+# ─── 3. Restart container ───────────────────────────────────────────────────
 
 log "Restart container LibreChat..."
 
@@ -146,7 +134,7 @@ docker compose restart api 2>&1 | tee -a "$LOG_FILE" || fail "RESTART" "docker c
 
 log "Container riavviato."
 
-# ─── 5. Health check ────────────────────────────────────────────────────────
+# ─── 4. Health check ────────────────────────────────────────────────────────
 
 log "Health check in corso..."
 
@@ -169,14 +157,14 @@ if [ "$HEALTHY" = false ]; then
     fail "HEALTH CHECK" "Il servizio non risponde dopo $HEALTH_RETRIES tentativi. Container status: $CONTAINER_STATUS"
 fi
 
-# ─── 6. Verifica container running ──────────────────────────────────────────
+# ─── 5. Verifica container running ──────────────────────────────────────────
 
 CONTAINER_RUNNING=$(docker compose ps api --format '{{.State}}' 2>/dev/null || echo "")
 if [ "$CONTAINER_RUNNING" != "running" ]; then
     fail "HEALTH CHECK" "Container non in stato 'running'. Stato: $CONTAINER_RUNNING"
 fi
 
-# ─── 7. Notifica successo ───────────────────────────────────────────────────
+# ─── 6. Notifica successo ───────────────────────────────────────────────────
 
 log "Deploy completato: $OLD_VERSION → $NEW_VERSION"
 send_success_mail
