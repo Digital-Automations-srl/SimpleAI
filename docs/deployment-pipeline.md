@@ -1,166 +1,171 @@
 # Pipeline di messa in produzione — SimpleAI
 
 Documento di riferimento per il deploy delle versioni custom di SimpleAI (fork di LibreChat).
-Basato sulla sessione tecnica Marco Nucci / Silvio Benvegnù del 07/04/2026.
 
 ---
 
-## Contesto
+## Pipeline in sintesi
 
-SimpleAI utilizza le immagini Docker ufficiali di LibreChat. Il container `LibreChat` (servizio `api`) contiene un proprio filesystem con il codice già compilato. Le modifiche ai sorgenti locali **non hanno effetto** a meno che non vengano compilate e montate nel container.
+```
+[PC sviluppatore]                        [Server produzione]
+Modifica codice                          git pull
+      ↓                                        ↓
+npm run build (compila client/dist/)     docker compose restart api
+      ↓                                        ↓
+git commit + git push                    ✅ Online con le modifiche
+```
 
-### Cosa NON funziona
-
-| Approccio | Perché non funziona |
-|---|---|
-| Modificare i file `.ts`/`.tsx` locali e riavviare il container | Il container usa la propria build pre-compilata, ignora i sorgenti |
-| Montare la cartella `src/` nel container via volume | Il server Express serve i file dalla cartella `dist/` (build Vite compilata), non i sorgenti TypeScript |
-
-### Cosa funziona
-
-Il container serve il frontend dalla cartella **`/app/client/dist/`**. Montando una build personalizzata in quel path, il container utilizza il nostro codice al posto di quello ufficiale.
+**Principio chiave**: la build si fa sul PC dello sviluppatore, mai sul server. Il server fa solo `git pull` + restart.
 
 ---
 
-## Strategia di deploy
+## 1. Sviluppo e test in locale
 
-```
-Sviluppo locale → Build frontend → Push su repo Git → Pull su server produzione → Restart container
-```
+### Requisiti
+- Node.js v20 LTS (v20.19.0+)
+- Docker Desktop
+- Repository clonato: `https://github.com/Digital-Automations-srl/SimpleAI.git`
 
-### 1. Sviluppo e test in locale
-
-Le modifiche vengono fatte sui sorgenti nel repository forkato. Per testare localmente si può:
-
-- **Opzione A — Build locale con Docker** (completa ma lenta, ~10 min):
-  ```bash
-  # In docker-compose.override.yml abilitare la local build:
-  # services:
-  #   api:
-  #     image: librechat
-  #     build:
-  #       context: .
-  #       target: node
-
-  docker compose down
-  docker compose build --no-cache api
-  docker compose up -d
-  ```
-
-- **Opzione B — Dev server diretto** (veloce, per iterare):
-  ```bash
-  npm run smart-reinstall
-  npm run backend:dev      # porta 3080
-  npm run frontend:dev     # porta 3090, proxy verso 3080
-  ```
-
-### 2. Build del frontend
-
-Quando le modifiche sono pronte e testate:
-
+### Test locale con dev server (veloce, per iterare)
 ```bash
-# Requisito: Node.js 20 LTS (v20.19.0+)
-node --version  # verificare
-
-# Installare dipendenze e compilare
-npm run smart-reinstall   # installa + build pacchetti
-npm run frontend          # build del client (genera client/dist/)
+npm run smart-reinstall     # installa dipendenze + build pacchetti
+npm run backend:dev         # porta 3080
+npm run frontend:dev        # porta 3090, proxy verso 3080
 ```
 
-Il Dockerfile ufficiale esegue esattamente questi step:
-```dockerfile
-NODE_OPTIONS="--max-old-space-size=6144" npm run frontend
-npm prune --production
-npm cache clean --force
-```
-
-L'output della build si trova in **`client/dist/`** e contiene:
-```
-client/dist/
-├── assets/          # JS/CSS compilati con hash
-├── index.html
-├── manifest.webmanifest
-├── registerSW.js
-├── robots.txt
-├── sw.js
-└── workbox-*.js
-```
-
-### 3. Push della build
-
-La cartella `client/dist/` viene committata e pushata sul repository Git del team.
-
-```bash
-git add client/dist/
-git commit -m "build: frontend v<versione>"
-git push
-```
-
-> **Nota**: normalmente `dist/` è in `.gitignore`. Per questa strategia va rimosso dal gitignore oppure si usa un repository separato per i build artifacts.
-
-### 4. Deploy su server di produzione
-
-Sul server di produzione:
-
-```bash
-# Pull della nuova build
-cd /path/to/simpleai-builds
-git pull
-
-# Restart del container (il volume monta automaticamente la nuova dist)
-cd /path/to/librechat
-docker compose restart api
-```
-
-### 5. Configurazione Docker in produzione
-
-Il `docker-compose.yml` di produzione usa le immagini ufficiali LibreChat. Il `docker-compose.override.yml` monta la build custom:
-
+### Test locale con Docker (simula la produzione)
+Configurare `docker-compose.override.yml` locale:
 ```yaml
 services:
   api:
+    image: ghcr.io/danny-avila/librechat:v0.8.2
     volumes:
       - type: bind
         source: ./librechat.yaml
         target: /app/librechat.yaml
       - ./api/data:/api/data
-      # Build frontend custom — sovrascrive la dist ufficiale
-      - /path/to/simpleai-builds/client/dist:/app/client/dist
+      - ./client/dist:/app/client/dist
 ```
-
-I restanti 4 container (mongodb, meilisearch, vectordb, rag_api) restano invariati con le immagini ufficiali.
+```bash
+docker compose up -d
+```
 
 ---
 
-## Automazione (cron notturno)
+## 2. Build e push
 
-Per aggiornare automaticamente tutte le installazioni dei clienti:
+Quando le modifiche sono pronte e testate:
 
 ```bash
-#!/bin/bash
-# /opt/scripts/simpleai-update.sh
-# Eseguire via cron alle 03:00: 0 3 * * * /opt/scripts/simpleai-update.sh
+# Pulire cache e compilare tutto
+# Su Windows, rimuovere .turbo e client/dist prima se necessario
+npm run build               # compila tutti i pacchetti + client/dist via Turbo
 
-cd /path/to/simpleai-builds
+# Verificare che la build esista
+ls client/dist/index.html
 
-OUTPUT=$(git pull 2>&1)
+# Commit e push (la dist è tracciata da Git)
+git add -A
+git commit -m "feat: descrizione della modifica"
+git push origin main
+```
 
-if echo "$OUTPUT" | grep -q "Already up to date"; then
-    echo "Nessun aggiornamento disponibile"
-    exit 0
-fi
+`client/dist/` è inclusa nel repository (rimossa dal `.gitignore`), quindi il server riceve la build già compilata.
 
-echo "Aggiornamento trovato, restart container..."
-cd /path/to/librechat
-docker compose restart api
-echo "Deploy completato: $(date)"
+---
+
+## 3. Deploy su server di produzione
+
+### Aggiornamento di routine
+```bash
+cd ~/SimpleAI
+git pull && docker compose restart api
+```
+
+Questo è tutto. Solo il container `api` (LibreChat) viene riavviato. MongoDB, Meilisearch, vectordb e rag_api **non vengono toccati** → i dati sono al sicuro.
+
+### Quando usare `down + up` (raro)
+Usare solo se si modifica `docker-compose.yml`, `docker-compose.override.yml` o le immagini Docker:
+```bash
+docker compose down && docker compose up -d
 ```
 
 ---
 
-## Aggiornamenti upstream (LibreChat)
+## 4. Configurazione server di produzione
 
-Il repository SimpleAI è un **fork** di `danny-avila/LibreChat`. Per incorporare aggiornamenti upstream (fix di sicurezza, nuove feature):
+### File che vivono SOLO sul server (non nel repo)
+
+Questi file sono nel `.gitignore` e vanno configurati manualmente su ogni server:
+
+| File | Scopo |
+|---|---|
+| `docker-compose.override.yml` | Immagini Docker, volumi locali, override specifici del server |
+| `.env` | Chiavi API, credenziali, configurazione ambiente |
+| `librechat.yaml` | Endpoint AI, modelli, configurazione applicativa |
+| `api/data/auth.json` | Service account Google Cloud (Vertex AI) |
+| `data-node/` | Dati MongoDB (volume Docker) |
+
+### docker-compose.override.yml (template server)
+```yaml
+services:
+  api:
+    image: ghcr.io/danny-avila/librechat:v0.8.2
+    volumes:
+      - type: bind
+        source: ./librechat.yaml
+        target: /app/librechat.yaml
+      - ./api/data:/api/data
+      - ./client/dist:/app/client/dist
+  mongodb:
+    image: mongo:8.2
+```
+
+**Nota**: l'immagine MongoDB deve corrispondere alla versione dei dati in `data-node/`. Non fare downgrade (es. da 8.2 a 8.0) altrimenti MongoDB non parte.
+
+### Setup iniziale di un nuovo server
+```bash
+# 1. Clona il repo
+git clone git@github.com:Digital-Automations-srl/SimpleAI.git ~/SimpleAI
+cd ~/SimpleAI
+
+# 2. Crea i file di configurazione locali
+nano .env                           # copia da template o da altro server
+nano librechat.yaml                 # configurazione endpoint/modelli
+nano docker-compose.override.yml    # vedi template sopra
+# Copiare api/data/auth.json se necessario (Vertex AI)
+
+# 3. Avvia
+docker compose up -d
+
+# 4. Crea utente admin
+docker exec LibreChat node /app/config/create-user.js
+
+# 5. Configura cron per aggiornamenti automatici (opzionale)
+chmod +x scripts/deploy-update.sh
+crontab -e
+# Aggiungi: 0 3 * * * /home/digital_automations/SimpleAI/scripts/deploy-update.sh
+```
+
+---
+
+## 5. Automazione (script deploy-update.sh)
+
+Lo script `scripts/deploy-update.sh` automatizza il deploy via cron:
+
+1. `git fetch` + confronto hash → se non ci sono aggiornamenti, esce silenziosamente
+2. `git pull` → scarica il nuovo codice + dist compilata
+3. `docker compose restart api` → riavvia solo il container app
+4. Health check → verifica HTTP 200 e container running
+5. Email di notifica → successo o errore via msmtp
+
+Configurazione msmtp: vedi `scripts/msmtp-setup.md`.
+
+---
+
+## 6. Aggiornamenti upstream (LibreChat)
+
+Il repository SimpleAI è un **fork** di `danny-avila/LibreChat`. Per incorporare aggiornamenti upstream:
 
 ```bash
 # Configurazione iniziale (una sola volta)
@@ -168,58 +173,43 @@ git remote add upstream https://github.com/danny-avila/LibreChat.git
 
 # Aggiornamento
 git fetch upstream
-git merge upstream/main
+git diff upstream/main --name-only    # verifica quali file cambiano
+git merge upstream/main               # merge (risolvere conflitti se necessario)
+npm run build                         # ricompilare il frontend
+git push origin main                  # push con la nuova build
 ```
 
-In caso di conflitti, Git segnalerà i file con marcatori `<<<<<<<` / `>>>>>>>`. Risolvere manualmente controllando che le nostre modifiche custom siano preservate.
-
-**Linea guida**: accettare aggiornamenti upstream solo quando riguardano file che non abbiamo modificato, oppure fix di sicurezza critici. Verificare sempre con `git diff upstream/main --name-only` quali file sono cambiati prima di fare il merge.
+**Linea guida**: verificare sempre i file cambiati prima del merge. Se toccano file che abbiamo modificato, risolvere i conflitti manualmente.
 
 ---
 
-## Struttura del container
+## 7. Struttura container
 
-| Container | Immagine | Ruolo | Personalizzato? |
+| Container | Immagine | Ruolo | Dati persistenti |
 |---|---|---|---|
-| `LibreChat` | `registry.librechat.ai/.../librechat-dev:latest` | API Express + Frontend | Sì (mount dist/) |
-| `chat-mongodb` | `mongo:8.0.17` | Database | No |
-| `chat-meilisearch` | `getmeili/meilisearch:v1.35.1` | Ricerca full-text | No |
-| `vectordb` | `pgvector/pgvector:0.8.0-pg15-trixie` | Vector DB per RAG | No |
+| `LibreChat` | `ghcr.io/.../librechat:v0.8.2` | API + Frontend | No (stateless, dist montata) |
+| `chat-mongodb` | `mongo:8.2` | Database | `data-node/` |
+| `chat-meilisearch` | `getmeili/meilisearch:v1.35.1` | Ricerca full-text | `meili_data_v1.35.1/` |
+| `vectordb` | `pgvector/pgvector:0.8.0-pg15-trixie` | Vector DB (RAG) | volume `pgdata2` |
 | `rag_api` | `librechat-rag-api-dev-lite:latest` | API RAG | No |
 
 ### Path nel container LibreChat
 
 | Path | Contenuto |
 |---|---|
-| `/app/` | Root del progetto |
-| `/app/client/dist/` | **Build frontend** (quello che montiamo) |
-| `/app/client/src/` | Sorgenti TypeScript (non usati a runtime) |
-| `/app/api/` | Backend Express |
-| `/app/.env` | Configurazione (montato da host) |
-| `/app/librechat.yaml` | Config YAML (montato da host) |
-| `/api/data/` | Dati auth (es. Google service account) |
+| `/app/client/dist/` | **Build frontend** (montata da host) |
+| `/app/.env` | Configurazione (montata da host) |
+| `/app/librechat.yaml` | Config YAML (montata da host) |
+| `/api/data/` | Service account e dati auth (montata da host) |
 
 ---
 
-## Riepilogo dei file di configurazione
+## Checklist pre-deploy
 
-| File | Posizione | Scopo |
-|---|---|---|
-| `docker-compose.yml` | Root progetto | Definizione servizi Docker (non modificare) |
-| `docker-compose.override.yml` | Root progetto | Override: mount volumi, build locale |
-| `.env` | Root progetto | Variabili d'ambiente (chiavi API, DB, ecc.) |
-| `librechat.yaml` | Root progetto | Configurazione applicativa (endpoint, modelli, UI) |
-| `Dockerfile` | Root progetto | Build immagine custom (per build locale) |
-
----
-
-## Validazione tecnica
-
-Verifiche effettuate durante la sessione del 07/04/2026:
-
-- [x] Il mount di `src/` nel container **non funziona** — il server serve da `dist/`
-- [x] La build locale del frontend genera `client/dist/` correttamente
-- [x] Il mount di `client/dist/` nel container tramite volume **funziona**
-- [x] Il container con dist custom serve correttamente il frontend modificato
-- [x] I restanti container (mongo, meilisearch, vectordb, rag_api) non richiedono modifiche
-- [x] Il Dockerfile ufficiale di LibreChat supporta la local build (`docker-compose.override.yml` con `build: context: .`)
+- [ ] Modifiche testate in locale (dev server o Docker)
+- [ ] `npm run build` completata senza errori (5/5 tasks)
+- [ ] `client/dist/index.html` esiste
+- [ ] Commit include sia i sorgenti modificati che `client/dist/`
+- [ ] Push su `origin/main`
+- [ ] Sul server: `git pull && docker compose restart api`
+- [ ] Verifica: pagina caricata su `http://<server>:3080`

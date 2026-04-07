@@ -356,9 +356,6 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
             {TextToSpeech && automaticPlayback && <StreamAudio index={index} />}
           </div>
         </div>
-        <div className="mt-1 text-center text-xs text-text-secondary">
-          Ciao ho modificato io questo codice
-        </div>
       </div>
     </form>
   );

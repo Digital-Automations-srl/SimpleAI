@@ -39,9 +39,8 @@ function handleCopy(e: ClipboardEvent): void {
     e.preventDefault();
     e.clipboardData?.setData('text/html', cleanHtml);
     e.clipboardData?.setData('text/plain', plainText);
-    console.log('[SemanticCopy] OK, html length:', cleanHtml.length);
-  } catch (err) {
-    console.error('[SemanticCopy] Error:', err);
+  } catch {
+    // Fallback: lascia il comportamento di copia default del browser
   }
 }
 
