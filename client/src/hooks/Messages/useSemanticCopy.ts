@@ -6,6 +6,7 @@ const SEMANTIC_TAGS = [
   'ul', 'ol', 'li', 'a', 'p', 'br', 'code', 'pre',
   'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
   'del', 'sup', 'sub', 'hr',
+  'span', 'div', 'mark',
 ];
 
 function isWithinMessage(node: Node): boolean {
@@ -32,7 +33,7 @@ function handleCopy(e: ClipboardEvent): void {
     const rawHtml = div.innerHTML;
     const cleanHtml = DOMPurify.sanitize(rawHtml, {
       ALLOWED_TAGS: SEMANTIC_TAGS,
-      ALLOWED_ATTR: ['href', 'target'],
+      ALLOWED_ATTR: ['href', 'target', 'style', 'class'],
     });
     const plainText = selection.toString();
 

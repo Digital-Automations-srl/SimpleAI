@@ -1,8 +1,9 @@
 import { useState, memo, useRef } from 'react';
 import * as Menu from '@ariakit/react/menu';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, Sparkles, MessageSquarePlus } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
 import { MyFilesModal } from '~/components/Chat/Input/Files/MyFilesModal';
+import { FeedbackModal } from '~/components/ui';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
@@ -17,6 +18,7 @@ function AccountSettings() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const accountSettingsButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -72,6 +74,10 @@ function AccountSettings() {
             {localize('com_nav_help_faq')}
           </Menu.MenuItem>
         )}
+        <Menu.MenuItem onClick={() => setShowFeedback(true)} className="select-item text-sm">
+          <MessageSquarePlus className="icon-md" aria-hidden="true" />
+          {localize('com_nav_feedback') ?? 'Segnala un miglioramento'}
+        </Menu.MenuItem>
         <Menu.MenuItem onClick={() => setShowSettings(true)} className="select-item text-sm">
           <GearIcon className="icon-md" aria-hidden="true" />
           {localize('com_nav_settings')}
@@ -90,6 +96,7 @@ function AccountSettings() {
         />
       )}
       {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
+      {showFeedback && <FeedbackModal open={showFeedback} onOpenChange={setShowFeedback} />}
     </Menu.MenuProvider>
   );
 }

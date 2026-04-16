@@ -17,13 +17,20 @@ import {
   FileMapContext,
 } from '~/Providers';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
+import { TermsAndConditionsModal, ChangelogModal, getSeenVersion } from '~/components/ui';
 import { Nav, MobileNav, NAV_WIDTH } from '~/components/Nav';
-import { TermsAndConditionsModal } from '~/components/ui';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
 
+interface ChangelogData {
+  version: string;
+  entries: { version: string; date: string; title: string; changes: string[] }[];
+}
+
 export default function Root() {
   const [showTerms, setShowTerms] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [changelogData, setChangelogData] = useState<ChangelogData | null>(null);
   const [bannerHeight, setBannerHeight] = useState(0);
   const [navVisible, setNavVisible] = useState(() => {
     const savedNavVisible = localStorage.getItem('navVisible');
@@ -52,6 +59,22 @@ export default function Root() {
       setShowTerms(!termsData.termsAccepted);
     }
   }, [termsData]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+    fetch('/changelog.json')
+      .then((res) => res.json())
+      .then((data: ChangelogData) => {
+        setChangelogData(data);
+        const seen = getSeenVersion();
+        if (seen !== data.version) {
+          setShowChangelog(true);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   const handleAcceptTerms = () => {
     setShowTerms(false);
@@ -105,6 +128,13 @@ export default function Root() {
               onDecline={handleDeclineTerms}
               title={config.interface.termsOfService.modalTitle}
               modalContent={config.interface.termsOfService.modalContent}
+            />
+          )}
+          {changelogData && (
+            <ChangelogModal
+              open={showChangelog}
+              onOpenChange={setShowChangelog}
+              data={changelogData}
             />
           )}
         </AssistantsMapContext.Provider>
