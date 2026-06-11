@@ -78,6 +78,13 @@ librechat.yml
 # Environment
 .npmrc
 .env*
+config/machines.json
+cost-remote-*.csv
+cost-per-user-*.csv
+fatturazione-token-clienti*.xlsx
+image (4).png
+test-results/
+test-cache-agent-prompt.md
 my.secrets
 !**/.env.example
 !**/.env.test.example
