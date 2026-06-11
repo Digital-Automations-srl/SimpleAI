@@ -186,7 +186,10 @@ curl -s -X POST http://localhost:8000/exec \
 
 Nel `.env` di LibreChat:
 ```
-LIBRECHAT_CODE_BASEURL=http://host.docker.internal:8000   # SENZA /v1
+# La chiave va EMBEDDED nel URL (Basic auth): da LibreChat v0.8.6 il nuovo
+# bash_tool non invia piu' l'header x-api-key (LIBRECHAT_CODE_API_KEY e' ignorata
+# da quel percorso e usa solo JWT enterprise).
+LIBRECHAT_CODE_BASEURL=http://<API_KEY>@host.docker.internal:8000   # SENZA /v1
 LIBRECHAT_CODE_API_KEY=<API_KEY>
 ```
 

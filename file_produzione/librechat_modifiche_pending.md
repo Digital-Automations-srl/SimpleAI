@@ -86,9 +86,11 @@ curl -s -X POST http://localhost:8000/exec \
   -d '{"lang":"py","code":"print(2+2)"}'
 
 # 5. Nel .env di LibreChat (~/SimpleAI/.env) aggiungi:
-#    LIBRECHAT_CODE_BASEURL=http://host.docker.internal:8000
+#    LIBRECHAT_CODE_BASEURL=http://<API_KEY>@host.docker.internal:8000
 #    LIBRECHAT_CODE_API_KEY=<API_KEY del punto 2>
 #    (host.docker.internal funziona: extra_hosts gia' configurato nel compose di LibreChat)
+#    NB da v0.8.6 la chiave DEVE stare embedded nel URL (Basic auth):
+#    il nuovo bash_tool non invia piu' l'header x-api-key.
 
 # 6. Restart LibreChat
 cd ~/SimpleAI && docker compose restart api
