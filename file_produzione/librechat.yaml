@@ -96,9 +96,20 @@ fileConfig:
 
 actions:
   allowedDomains:
-    - 'swapi.dev'
-    - 'librechat.ai'
-    - 'google.com'
+    - "https://n8n.digitalautomations.it"
+
+
+mcpServers:
+  odoo-ai:
+    type: streamable-http
+    url: https://odoo-api-champions.digitalautomations.it/mcp
+    headers:
+      Authorization: "Bearer {{ODOO_AI_API_KEY}}"
+    customUserVars:
+      ODOO_AI_API_KEY:
+        title: "Odoo AI API Key"
+        description: "User specific Odoo AI API Key"
+
 
 endpoints:
 
@@ -162,3 +173,38 @@ webSearch:
   rerankerType: "jina"
   safeSearch: 1
   scraperTimeout: 5000
+
+modelSpecs:
+  list:
+    - name: "gpt-5.2-reasoning"
+      label: "GPT-5.2 Reasoning"
+      description: "GPT-5.2 con ragionamento avanzato attivo"
+      group: "azureOpenAI"
+      preset:
+        endpoint: "azureOpenAI"
+        model: "gpt-5.2"
+        useResponsesApi: true
+        reasoning_effort: "high"
+        reasoning_summary: "concise"
+
+    - name: "gpt-5.1-reasoning"
+      label: "GPT-5.1 Reasoning"
+      description: "GPT-5.1 con ragionamento avanzato attivo"
+      group: "azureOpenAI"
+      preset:
+        endpoint: "azureOpenAI"
+        model: "gpt-5.1"
+        useResponsesApi: true
+        reasoning_effort: "high"
+        reasoning_summary: "concise"
+
+    - name: "gpt-5-reasoning"
+      label: "GPT-5 Reasoning"
+      description: "GPT-5 con ragionamento avanzato attivo"
+      group: "azureOpenAI"
+      preset:
+        endpoint: "azureOpenAI"
+        model: "gpt-5"
+        useResponsesApi: true
+        reasoning_effort: "high"
+        reasoning_summary: "concise"
