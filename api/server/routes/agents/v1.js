@@ -49,6 +49,9 @@ router.use('/tools', configMiddleware, tools);
  * @route GET /agents/categories
  */
 router.get('/categories', v1.getAgentCategories);
+router.post('/categories', checkAgentCreate, v1.createCategory);
+router.patch('/categories/:value', checkAgentCreate, v1.updateCategory);
+router.delete('/categories/:value', checkAgentCreate, v1.deleteCategory);
 /**
  * Creates an agent.
  * @route POST /agents

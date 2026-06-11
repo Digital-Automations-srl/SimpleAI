@@ -42,7 +42,7 @@ const {
   grantPermission,
 } = require('~/server/services/PermissionService');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
-const { getCategoriesWithCounts, deleteFileByFilter } = require('~/models');
+const { getCategoriesWithCounts, createCategory, updateCategory, deleteCategory, findCategoryByValue, deleteFileByFilter } = require('~/models');
 const { resizeAvatar } = require('~/server/services/Files/images/avatar');
 const { getFileStrategy } = require('~/server/utils/getFileStrategy');
 const { refreshS3Url } = require('~/server/services/Files/S3/crud');
@@ -936,6 +936,7 @@ const getAgentCategories = async (_req, res) => {
       label: category.label,
       count: category.agentCount,
       description: category.description,
+      custom: category.custom || false,
     }));
 
     if (promotedCount > 0) {
@@ -963,6 +964,84 @@ const getAgentCategories = async (_req, res) => {
     });
   }
 };
+/**
+ * Create a new agent category
+ */
+const createCategoryHandler = async (req, res) => {
+  try {
+    const { value, label, description } = req.body;
+    if (!value || !label) {
+      return res.status(400).json({ error: 'value and label are required' });
+    }
+
+    const existing = await findCategoryByValue(value);
+    if (existing) {
+      return res.status(409).json({ error: 'Category with this value already exists' });
+    }
+
+    const category = await createCategory({
+      value,
+      label,
+      description: description || '',
+      custom: true,
+      isActive: true,
+    });
+
+    res.status(201).json(category);
+  } catch (error) {
+    logger.error('[/Agents/Categories] Error creating category:', error);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+};
+
+/**
+ * Update an existing agent category
+ */
+const updateCategoryHandler = async (req, res) => {
+  try {
+    const { value } = req.params;
+    const updateData = req.body;
+
+    const category = await updateCategory(value, updateData);
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    res.status(200).json(category);
+  } catch (error) {
+    logger.error('[/Agents/Categories] Error updating category:', error);
+    res.status(500).json({ error: 'Failed to update category' });
+  }
+};
+
+/**
+ * Delete an agent category
+ */
+const deleteCategoryHandler = async (req, res) => {
+  try {
+    const { value } = req.params;
+
+    const category = await findCategoryByValue(value);
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    if (!category.custom) {
+      return res.status(403).json({ error: 'Cannot delete system categories' });
+    }
+
+    const deleted = await deleteCategory(value);
+    if (!deleted) {
+      return res.status(500).json({ error: 'Failed to delete category' });
+    }
+
+    res.status(200).json({ message: 'Category deleted' });
+  } catch (error) {
+    logger.error('[/Agents/Categories] Error deleting category:', error);
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+};
+
 module.exports = {
   createAgent: createAgentHandler,
   getAgent: getAgentHandler,
@@ -973,5 +1052,8 @@ module.exports = {
   uploadAgentAvatar: uploadAgentAvatarHandler,
   revertAgentVersion: revertAgentVersionHandler,
   getAgentCategories,
+  createCategory: createCategoryHandler,
+  updateCategory: updateCategoryHandler,
+  deleteCategory: deleteCategoryHandler,
   filterAuthorizedTools,
 };
