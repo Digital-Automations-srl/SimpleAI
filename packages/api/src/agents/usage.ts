@@ -73,6 +73,23 @@ export async function recordCollectedUsage(
     return;
   }
 
+  if (process.env.DEBUG_TOKEN_TRACKING === '1') {
+    logger.info(
+      `[TOKEN_TRACE] recordCollectedUsage enter conv=${conversationId} model=${model} context=${context} collectedLength=${collectedUsage.length}`,
+    );
+    collectedUsage.forEach((u, idx) => {
+      const cc =
+        Number(u?.input_token_details?.cache_creation) ||
+        Number(u?.cache_creation_input_tokens) ||
+        0;
+      const cr =
+        Number(u?.input_token_details?.cache_read) || Number(u?.cache_read_input_tokens) || 0;
+      logger.info(
+        `[TOKEN_TRACE] recordCollectedUsage entry[${idx}] model=${u?.model} input=${u?.input_tokens} output=${u?.output_tokens} cache_creation=${cc} cache_read=${cr}`,
+      );
+    });
+  }
+
   const firstUsage = collectedUsage[0];
   const input_tokens =
     (firstUsage?.input_tokens || 0) +

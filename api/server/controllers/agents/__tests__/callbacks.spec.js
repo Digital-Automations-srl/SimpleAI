@@ -327,3 +327,94 @@ describe('createToolEndCallback', () => {
     });
   });
 });
+
+describe('ModelEndHandler', () => {
+  let ModelEndHandler, graph, baseMetadata;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ({ ModelEndHandler } = require('../callbacks'));
+    graph = {
+      getAgentContext: () => ({ clientOptions: { model: 'claude-opus-4-6' } }),
+    };
+    baseMetadata = {
+      run_id: 'run-1',
+      thread_id: 'thread-1',
+      ls_model_name: 'claude-opus-4-6',
+    };
+  });
+
+  const makeData = (usage) => ({ output: { usage_metadata: usage } });
+
+  it('pushes usage once per unique run_id', async () => {
+    const collectedUsage = [];
+    const handler = new ModelEndHandler(collectedUsage);
+    const usage = { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 200 };
+
+    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
+
+    expect(collectedUsage).toHaveLength(1);
+    expect(collectedUsage[0].input_tokens).toBe(100);
+    expect(collectedUsage[0].model).toBe('claude-opus-4-6');
+  });
+
+  it('skips duplicate events with the same run_id', async () => {
+    const collectedUsage = [];
+    const handler = new ModelEndHandler(collectedUsage);
+    const usage = { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 200 };
+
+    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
+    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
+    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
+
+    expect(collectedUsage).toHaveLength(1);
+  });
+
+  it('records separate events for different run_ids', async () => {
+    const collectedUsage = [];
+    const handler = new ModelEndHandler(collectedUsage);
+
+    await handler.handle(
+      'on_chat_model_end',
+      makeData({ input_tokens: 100, output_tokens: 50 }),
+      { ...baseMetadata, run_id: 'run-a' },
+      graph,
+    );
+    await handler.handle(
+      'on_chat_model_end',
+      makeData({ input_tokens: 200, output_tokens: 80 }),
+      { ...baseMetadata, run_id: 'run-b' },
+      graph,
+    );
+    await handler.handle(
+      'on_chat_model_end',
+      makeData({ input_tokens: 300, output_tokens: 90 }),
+      { ...baseMetadata, run_id: 'run-c' },
+      graph,
+    );
+
+    expect(collectedUsage).toHaveLength(3);
+    expect(collectedUsage.map((u) => u.input_tokens)).toEqual([100, 200, 300]);
+  });
+
+  it('does not dedup when run_id is missing from metadata', async () => {
+    const collectedUsage = [];
+    const handler = new ModelEndHandler(collectedUsage);
+    const metadataNoRunId = { thread_id: 'thread-1', ls_model_name: 'claude-opus-4-6' };
+
+    await handler.handle(
+      'on_chat_model_end',
+      makeData({ input_tokens: 100, output_tokens: 50 }),
+      metadataNoRunId,
+      graph,
+    );
+    await handler.handle(
+      'on_chat_model_end',
+      makeData({ input_tokens: 200, output_tokens: 80 }),
+      metadataNoRunId,
+      graph,
+    );
+
+    expect(collectedUsage).toHaveLength(2);
+  });
+});

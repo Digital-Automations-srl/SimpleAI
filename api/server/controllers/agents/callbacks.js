@@ -22,6 +22,7 @@ class ModelEndHandler {
       throw new Error('collectedUsage must be an array');
     }
     this.collectedUsage = collectedUsage;
+    this.seenRunIds = new Set();
   }
 
   finalize(errorMessage) {
@@ -71,7 +72,28 @@ class ModelEndHandler {
         usage.model = modelName;
       }
 
+      const runId = metadata?.run_id;
+      if (runId && this.seenRunIds.has(runId)) {
+        if (process.env.DEBUG_TOKEN_TRACKING === '1') {
+          logger.info(
+            `[TOKEN_TRACE] ModelEndHandler SKIP duplicate run=${runId} thread=${metadata?.thread_id} model=${modelName}`,
+          );
+        }
+        return this.finalize(errorMessage);
+      }
+      if (runId) {
+        this.seenRunIds.add(runId);
+      }
+
       this.collectedUsage.push(usage);
+
+      if (process.env.DEBUG_TOKEN_TRACKING === '1') {
+        const cc = usage.cache_creation_input_tokens ?? usage.input_token_details?.cache_creation ?? 0;
+        const cr = usage.cache_read_input_tokens ?? usage.input_token_details?.cache_read ?? 0;
+        logger.info(
+          `[TOKEN_TRACE] ModelEndHandler push thread=${metadata?.thread_id} run=${metadata?.run_id} model=${modelName} input=${usage.input_tokens} output=${usage.output_tokens} cache_creation=${cc} cache_read=${cr} collectedLength=${this.collectedUsage.length}`,
+        );
+      }
     } catch (error) {
       logger.error('Error handling model end event:', error);
       return this.finalize(errorMessage);
@@ -672,4 +694,5 @@ module.exports = {
   getDefaultHandlers,
   createToolEndCallback,
   createResponsesToolEndCallback,
+  ModelEndHandler,
 };

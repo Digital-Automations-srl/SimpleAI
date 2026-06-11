@@ -23,6 +23,11 @@ const spendTokens = async (txData, tokenUsage) => {
       completionTokens,
     },
   );
+  if (process.env.DEBUG_TOKEN_TRACKING === '1') {
+    logger.info(
+      `[TOKEN_TRACE] spendTokens write conv=${txData.conversationId} ctx=${txData.context} model=${txData.model} prompt=${promptTokens} completion=${completionTokens}`,
+    );
+  }
   let prompt, completion;
   const normalizedPromptTokens = Math.max(promptTokens ?? 0, 0);
   try {
@@ -87,6 +92,11 @@ const spendStructuredTokens = async (txData, tokenUsage) => {
       completionTokens,
     },
   );
+  if (process.env.DEBUG_TOKEN_TRACKING === '1') {
+    logger.info(
+      `[TOKEN_TRACE] spendStructuredTokens write conv=${txData.conversationId} ctx=${txData.context} model=${txData.model} input=${promptTokens?.input} write=${promptTokens?.write} read=${promptTokens?.read} completion=${completionTokens}`,
+    );
+  }
   let prompt, completion;
   try {
     if (promptTokens) {

@@ -188,6 +188,13 @@ function getLLMConfig(
     (requestOptions as Record<string, unknown>).promptCache = true;
   }
 
+  if (process.env.DEBUG_TOKEN_TRACKING === '1') {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[TOKEN_TRACE] getLLMConfig model=${requestOptions.model} systemOptions.promptCache=${systemOptions.promptCache} checkPromptCacheSupport=${checkPromptCacheSupport(requestOptions.model ?? '')} supportsCacheControl=${supportsCacheControl} requestOptions.promptCache=${(requestOptions as Record<string, unknown>).promptCache}`,
+    );
+  }
+
   const headers = getClaudeHeaders(requestOptions.model ?? '', supportsCacheControl);
   if (headers && requestOptions.clientOptions) {
     requestOptions.clientOptions.defaultHeaders = headers;
