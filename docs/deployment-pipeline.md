@@ -163,6 +163,40 @@ Configurazione msmtp: vedi `scripts/msmtp-setup.md`.
 
 ---
 
+## 5-bis. Code Interpreter self-hosted (submodule `code-interpreter/`)
+
+Gli agenti eseguono codice tramite [LibreCodeInterpreter](https://github.com/usnavy13/LibreCodeInterpreter)
+(API compatibile col Code Interpreter di LibreChat, sandbox nsjail), incluso come
+**git submodule** in `code-interpreter/`.
+
+```bash
+# Dopo il clone del repo (una sola volta)
+git submodule update --init
+
+# Avvio dello stack (richiede Docker; funziona anche su Docker Desktop/WSL2)
+cd code-interpreter
+cp .env.example .env       # impostare API_KEY e MASTER_API_KEY (openssl rand -hex 32)
+docker compose pull && docker compose up -d
+
+# Test
+curl -s -X POST http://localhost:8000/exec \
+  -H "x-api-key: <API_KEY>" -H "Content-Type: application/json" \
+  -d '{"lang":"py","code":"print(2+2)"}'
+```
+
+Nel `.env` di LibreChat:
+```
+LIBRECHAT_CODE_BASEURL=http://host.docker.internal:8000   # SENZA /v1
+LIBRECHAT_CODE_API_KEY=<API_KEY>
+```
+
+Note:
+- Il base URL va **senza** `/v1`: LibreChat chiama `${BASEURL}/exec` e l'API espone `/exec` alla root.
+- Con la chiave impostata via env gli utenti non inseriscono chiavi personali.
+- La porta 8000 è pubblicata su 0.0.0.0: sui server limitarla via firewall o bindarla a 127.0.0.1.
+- Su macchine piccole ridurre il pool: `SANDBOX_POOL_PY=2`.
+- Il submodule non serve sui server che NON ospitano il code interpreter.
+
 ## 6. Aggiornamenti upstream (LibreChat)
 
 Il repository SimpleAI è un **fork** di `danny-avila/LibreChat`. Per incorporare aggiornamenti upstream:
