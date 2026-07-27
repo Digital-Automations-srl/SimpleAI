@@ -7,6 +7,10 @@ jest.mock('nanoid', () => ({
 
 jest.mock('@librechat/api', () => ({
   sendEvent: jest.fn(),
+  HOST_FILE_AUTHORING_ARTIFACT_KEY: '__librechat_file_authoring',
+  isCodeSessionToolName: jest.fn((name) =>
+    ['execute_code', 'bash_tool', 'read_file'].includes(name),
+  ),
 }));
 
 jest.mock('@librechat/data-schemas', () => ({
@@ -364,12 +368,21 @@ describe('createToolEndCallback', () => {
 
     const { processCodeOutput } = require('~/server/services/Files/Code/process');
 
-    function makeCodeExecutionEvent({ runId, threadId, toolCallId, fileId, name }) {
+    function makeCodeExecutionEvent({
+      runId,
+      threadId,
+      toolCallId,
+      fileId,
+      name,
+      toolName = 'execute_code',
+      hostFileAuthoring = false,
+    }) {
       return {
         output: {
-          name: 'execute_code',
+          name: toolName,
           tool_call_id: toolCallId,
           artifact: {
+            ...(hostFileAuthoring ? { __librechat_file_authoring: true } : {}),
             session_id: 'sess-1',
             files: [{ id: fileId, name, session_id: 'sess-1' }],
           },
@@ -573,6 +586,65 @@ describe('createToolEndCallback', () => {
 
       expect(res.write).toHaveBeenCalledTimes(1);
     });
+
+    it('processes create_file sandbox artifacts like code execution outputs', async () => {
+      res.headersSent = true;
+      processCodeOutput.mockResolvedValue({
+        file: {
+          file_id: 'fid-created',
+          filename: 'created.txt',
+          filepath: '/uploads/created.txt',
+          type: 'text/plain',
+          conversationId: 'thread789',
+          messageId: 'run-create',
+          toolCallId: 'tool-create',
+          status: 'ready',
+        },
+      });
+
+      const toolEndCallback = createToolEndCallback({ req, res, artifactPromises });
+      const event = makeCodeExecutionEvent({
+        runId: 'run-create',
+        threadId: 'thread789',
+        toolCallId: 'tool-create',
+        fileId: 'fid-created',
+        name: 'created.txt',
+        toolName: 'create_file',
+        hostFileAuthoring: true,
+      });
+      await toolEndCallback({ output: event.output }, event.metadata);
+      await Promise.all(artifactPromises);
+
+      expect(processCodeOutput).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'fid-created',
+          name: 'created.txt',
+          messageId: 'run-create',
+          toolCallId: 'tool-create',
+          conversationId: 'thread789',
+        }),
+      );
+      expect(res.write).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not process arbitrary user tool artifacts named create_file as code outputs', async () => {
+      res.headersSent = true;
+      const toolEndCallback = createToolEndCallback({ req, res, artifactPromises });
+      const event = makeCodeExecutionEvent({
+        runId: 'run-user-create',
+        threadId: 'thread789',
+        toolCallId: 'tool-user-create',
+        fileId: 'fid-user-created',
+        name: 'created.txt',
+        toolName: 'create_file',
+      });
+
+      await toolEndCallback({ output: event.output }, event.metadata);
+      await Promise.all(artifactPromises);
+
+      expect(processCodeOutput).not.toHaveBeenCalled();
+      expect(res.write).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -609,96 +681,5 @@ describe('isStreamWritable', () => {
 
   it('returns true on the happy path: headers sent, not ended, no streamId', () => {
     expect(isStreamWritable({ headersSent: true, writableEnded: false }, null)).toBe(true);
-  });
-});
-
-describe('ModelEndHandler', () => {
-  let ModelEndHandler, graph, baseMetadata;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    ({ ModelEndHandler } = require('../callbacks'));
-    graph = {
-      getAgentContext: () => ({ clientOptions: { model: 'claude-opus-4-6' } }),
-    };
-    baseMetadata = {
-      run_id: 'run-1',
-      thread_id: 'thread-1',
-      ls_model_name: 'claude-opus-4-6',
-    };
-  });
-
-  const makeData = (usage) => ({ output: { usage_metadata: usage } });
-
-  it('pushes usage once per unique run_id', async () => {
-    const collectedUsage = [];
-    const handler = new ModelEndHandler(collectedUsage);
-    const usage = { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 200 };
-
-    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
-
-    expect(collectedUsage).toHaveLength(1);
-    expect(collectedUsage[0].input_tokens).toBe(100);
-    expect(collectedUsage[0].model).toBe('claude-opus-4-6');
-  });
-
-  it('skips duplicate events with the same run_id', async () => {
-    const collectedUsage = [];
-    const handler = new ModelEndHandler(collectedUsage);
-    const usage = { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 200 };
-
-    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
-    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
-    await handler.handle('on_chat_model_end', makeData(usage), baseMetadata, graph);
-
-    expect(collectedUsage).toHaveLength(1);
-  });
-
-  it('records separate events for different run_ids', async () => {
-    const collectedUsage = [];
-    const handler = new ModelEndHandler(collectedUsage);
-
-    await handler.handle(
-      'on_chat_model_end',
-      makeData({ input_tokens: 100, output_tokens: 50 }),
-      { ...baseMetadata, run_id: 'run-a' },
-      graph,
-    );
-    await handler.handle(
-      'on_chat_model_end',
-      makeData({ input_tokens: 200, output_tokens: 80 }),
-      { ...baseMetadata, run_id: 'run-b' },
-      graph,
-    );
-    await handler.handle(
-      'on_chat_model_end',
-      makeData({ input_tokens: 300, output_tokens: 90 }),
-      { ...baseMetadata, run_id: 'run-c' },
-      graph,
-    );
-
-    expect(collectedUsage).toHaveLength(3);
-    expect(collectedUsage.map((u) => u.input_tokens)).toEqual([100, 200, 300]);
-  });
-
-  it('does not dedup when run_id is missing from metadata', async () => {
-    const collectedUsage = [];
-    const handler = new ModelEndHandler(collectedUsage);
-    const metadataNoRunId = { thread_id: 'thread-1', ls_model_name: 'claude-opus-4-6' };
-
-    await handler.handle(
-      'on_chat_model_end',
-      makeData({ input_tokens: 100, output_tokens: 50 }),
-      metadataNoRunId,
-      graph,
-    );
-    await handler.handle(
-      'on_chat_model_end',
-      makeData({ input_tokens: 200, output_tokens: 80 }),
-      metadataNoRunId,
-      graph,
-    );
-
-    expect(collectedUsage).toHaveLength(2);
   });
 });

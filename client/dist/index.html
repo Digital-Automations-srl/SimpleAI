@@ -47,40 +47,127 @@
         }
       `;
       document.head.appendChild(loadingContainerStyle);
+    </script>
+    <script>
+      (function () {
+        var KEY = 'lc-asset-recovery-at';
+        function shouldRecover() {
+          try {
+            var last = Number(sessionStorage.getItem(KEY)) || 0;
+            if (Date.now() - last < 60000) {
+              return false;
+            }
+            sessionStorage.setItem(KEY, String(Date.now()));
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+        /** Recovers from stale builds (e.g. an outdated service worker serving old
+         * hashed chunks after a deploy) by unregistering workers and reloading once.
+         * Returns true when a recovery reload was initiated. */
+        window.__lcRecoverStaleAssets = function () {
+          if (!shouldRecover()) {
+            return false;
+          }
+          var reload = function () {
+            window.location.reload();
+          };
+          if (navigator.serviceWorker) {
+            var scopeBase = new URL('./', document.baseURI || window.location.href).href;
+            navigator.serviceWorker
+              .getRegistrations()
+              .then(function (registrations) {
+                return Promise.all(
+                  registrations
+                    .filter(function (registration) {
+                      return registration.scope.indexOf(scopeBase) === 0;
+                    })
+                    .map(function (registration) {
+                      return registration.unregister();
+                    }),
+                );
+              })
+              .then(reload, reload);
+          } else {
+            reload();
+          }
+          return true;
+        };
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.addEventListener('message', function (event) {
+            if (!event.data || event.data.type !== 'LC_SW_PING') {
+              return;
+            }
+            var source = event.source || navigator.serviceWorker.controller;
+            if (source) {
+              source.postMessage({ type: 'LC_SW_PONG' });
+            }
+          });
+        }
+        window.addEventListener(
+          'error',
+          function (event) {
+            var el = event.target;
+            if (!el || !el.tagName) {
+              return;
+            }
+            var failedScript = el.tagName === 'SCRIPT' && el.src;
+            var failedPreload =
+              el.tagName === 'LINK' && /preload/.test(el.rel || '') && /\.js$/.test(el.href || '');
+            if (failedScript || failedPreload) {
+              window.__lcRecoverStaleAssets();
+            }
+          },
+          true,
+        );
+        window.addEventListener('unhandledrejection', function (event) {
+          var message = event.reason && event.reason.message;
+          if (
+            typeof message === 'string' &&
+            (message.indexOf('dynamically imported module') !== -1 ||
+              message.indexOf('Importing a module script failed') !== -1)
+          ) {
+            window.__lcRecoverStaleAssets();
+          }
+        });
+      })();
     </script>
-    <script type="module" crossorigin src="./assets/validation.B-DHkgat.js"></script>
-    <script type="module" crossorigin src="./assets/math-katex.Bw_N0rIA.js"></script>
-    <script type="module" crossorigin src="./assets/vendor.CS5a4_fx.js"></script>
-    <script type="module" crossorigin src="./assets/i18n.D0SzN0Nd.js"></script>
-    <script type="module" crossorigin src="./assets/locales.Ce8jV9zX.js"></script>
-    <script type="module" crossorigin src="./assets/routing.BWfmr1To.js"></script>
-    <script type="module" crossorigin src="./assets/radix-ui.KZsq0ciF.js"></script>
-    <script type="module" crossorigin src="./assets/react-interactions.DoP5Vfu9.js"></script>
-    <script type="module" crossorigin src="./assets/tanstack-vendor.DGQxRJH5.js"></script>
-    <script type="module" crossorigin src="./assets/http-client.Bt85IYnT.js"></script>
-    <script type="module" crossorigin src="./assets/avatars.B-PntWQn.js"></script>
-    <script type="module" crossorigin src="./assets/advanced-inputs.D3YATQi-.js"></script>
-    <script type="module" crossorigin src="./assets/virtualization.DhNoOi-8.js"></script>
-    <script type="module" crossorigin src="./assets/animations.m-7jxdKQ.js"></script>
-    <script type="module" crossorigin src="./assets/headlessui.m6z-dKAF.js"></script>
-    <script type="module" crossorigin src="./assets/framer-motion.wxOnDmIq.js"></script>
-    <script type="module" crossorigin src="./assets/utilities.IylyWwti.js"></script>
-    <script type="module" crossorigin src="./assets/date-utils.Bw39LL8F.js"></script>
-    <script type="module" crossorigin src="./assets/forms.CCPIp2wf.js"></script>
-    <script type="module" crossorigin src="./assets/codemirror-state.C8nmO8dc.js"></script>
-    <script type="module" crossorigin src="./assets/codemirror-view.BMGEI9cD.js"></script>
-    <script type="module" crossorigin src="./assets/codemirror-language.DbbxzzaM.js"></script>
-    <script type="module" crossorigin src="./assets/codemirror-core.D4pLivJP.js"></script>
-    <script type="module" crossorigin src="./assets/sandpack.C2JQJ-4E.js"></script>
-    <script type="module" crossorigin src="./assets/markdown_highlight.BZ9BWjja.js"></script>
-    <script type="module" crossorigin src="./assets/markdown-processing.DtfW-J3e.js"></script>
-    <script type="module" crossorigin src="./assets/security-ui.ohyE-BYG.js"></script>
-    <script type="module" crossorigin src="./assets/code-editor.DRHig47r.js"></script>
-    <script type="module" crossorigin src="./assets/heic-converter.Cz_Prg7D.js"></script>
-    <script type="module" crossorigin src="./assets/react-vtree.DmVB6rca.js"></script>
-    <script type="module" crossorigin src="./assets/index.CTrfvyXm.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/math-katex.shCdvSET.css">
-    <link rel="stylesheet" crossorigin href="./assets/index.B4CVeT2H.css">
+    <script type="module" crossorigin src="./assets/index.B5ZYHXlQ.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime.Cyuzqnbw.js">
+    <link rel="modulepreload" crossorigin href="./assets/codemirror-core.DCeggAsc.js">
+    <link rel="modulepreload" crossorigin href="./assets/http-client.D1qXypdn.js">
+    <link rel="modulepreload" crossorigin href="./assets/mermaid.CpNRA-E5.js">
+    <link rel="modulepreload" crossorigin href="./assets/advanced-inputs.BKUrQSBb.js">
+    <link rel="modulepreload" crossorigin href="./assets/animations.Cg77P7xO.js">
+    <link rel="modulepreload" crossorigin href="./assets/react-vtree.Bv__m2K7.js">
+    <link rel="modulepreload" crossorigin href="./assets/query-devtools.eCLhNcV1.js">
+    <link rel="modulepreload" crossorigin href="./assets/validation.DV1yC6np.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor.uP6rK6kU.js">
+    <link rel="modulepreload" crossorigin href="./assets/avatars.CH7OGiPh.js">
+    <link rel="modulepreload" crossorigin href="./assets/headlessui.CLu2eCui.js">
+    <link rel="modulepreload" crossorigin href="./assets/radix-ui.CFzgeTqm.js">
+    <link rel="modulepreload" crossorigin href="./assets/react-interactions.Ggqtj1A5.js">
+    <link rel="modulepreload" crossorigin href="./assets/routing.Cb7G0LKm.js">
+    <link rel="modulepreload" crossorigin href="./assets/tanstack-vendor.BolsaK2r.js">
+    <link rel="modulepreload" crossorigin href="./assets/markdown-processing.BqkdC0TQ.js">
+    <link rel="modulepreload" crossorigin href="./assets/date-utils.7tLVf9uC.js">
+    <link rel="modulepreload" crossorigin href="./assets/framer-motion.CMPOPEls.js">
+    <link rel="modulepreload" crossorigin href="./assets/i18n.D3Gbp8tn.js">
+    <link rel="modulepreload" crossorigin href="./assets/utilities.B8O80BWK.js">
+    <link rel="modulepreload" crossorigin href="./assets/forms.BEEooEiq.js">
+    <link rel="modulepreload" crossorigin href="./assets/virtualization.DphrnC86.js">
+    <link rel="modulepreload" crossorigin href="./assets/hooks.BSXnCHMq.js">
+    <link rel="modulepreload" crossorigin href="./assets/sandpack.CEJsOUxH.js">
+    <link rel="modulepreload" crossorigin href="./assets/MyFilesModal.CFZrPLEw.js">
+    <link rel="modulepreload" crossorigin href="./assets/security-ui.BjsCPful.js">
+    <link rel="modulepreload" crossorigin href="./assets/ProjectCreateDialog.BCoYNUji.js">
+    <link rel="modulepreload" crossorigin href="./assets/forms.SzMvw3S2.js">
+    <link rel="modulepreload" crossorigin href="./assets/polyfills.BnDHDYRr.js">
+    <link rel="modulepreload" crossorigin href="./assets/code-editor.CMtCNxFi.js">
+    <link rel="modulepreload" crossorigin href="./assets/math-katex.BMlcaHSk.js">
+    <link rel="stylesheet" crossorigin href="./assets/math-katex.uZ8_QngQ.css">
+    <link rel="stylesheet" crossorigin href="./assets/index.BMwiJ2lg.css">
   <link rel="manifest" href="./manifest.webmanifest" crossorigin="use-credentials"><script id="vite-plugin-pwa:register-sw" src="./registerSW.js"></script></head>
   <body>
     <div id="root">

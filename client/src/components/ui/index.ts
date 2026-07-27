@@ -1,3 +1,4 @@
+export { Button } from '@librechat/client';
 export { default as TermsAndConditionsModal } from './TermsAndConditionsModal';
 export { default as ChangelogModal } from './ChangelogModal';
 export { getSeenVersion, markVersionSeen } from './ChangelogModal';

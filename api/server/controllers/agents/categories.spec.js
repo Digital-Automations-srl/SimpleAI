@@ -1,88 +1,9 @@
-// Mock ALL dependencies of v1.js to avoid loading the real module chain
-jest.mock('@librechat/data-schemas', () => ({
-  logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
-}));
+/** Mirrors the harness of upstream's __tests__/v1.spec.js: automock the models
+ * layer and let the real dependency chain load, instead of hand-mocking every
+ * module v1.js requires (that broke on each upstream refactor). */
+jest.mock('~/models');
 
-jest.mock('@librechat/api', () => ({
-  agentCreateSchema: { parse: jest.fn() },
-  agentUpdateSchema: { parse: jest.fn() },
-  refreshListAvatars: jest.fn(),
-  collectEdgeAgentIds: jest.fn(),
-  mergeAgentOcrConversion: jest.fn(),
-  MAX_AVATAR_REFRESH_AGENTS: 100,
-  convertOcrToContextInPlace: jest.fn(),
-}));
-
-jest.mock('~/models/Agent', () => ({
-  getAgent: jest.fn(),
-  createAgent: jest.fn(),
-  updateAgent: jest.fn(),
-  deleteAgent: jest.fn(),
-  getListAgents: jest.fn(),
-  duplicateAgent: jest.fn(),
-  revertAgentVersion: jest.fn(),
-}));
-
-jest.mock('~/models/Action', () => ({
-  updateAction: jest.fn(),
-  getActions: jest.fn().mockResolvedValue([]),
-}));
-
-jest.mock('~/models', () => ({
-  getCategoriesWithCounts: jest.fn(),
-  createCategory: jest.fn(),
-  updateCategory: jest.fn(),
-  deleteCategory: jest.fn(),
-  findCategoryByValue: jest.fn(),
-  deleteFileByFilter: jest.fn(),
-}));
-
-jest.mock('~/server/services/PermissionService', () => ({
-  findAccessibleResources: jest.fn(),
-  findPubliclyAccessibleResources: jest.fn(),
-  getResourcePermissionsMap: jest.fn().mockResolvedValue(new Map()),
-  hasPublicPermission: jest.fn(),
-  grantPermission: jest.fn(),
-}));
-
-jest.mock('~/server/services/Files/strategies', () => ({
-  getStrategyFunctions: jest.fn(),
-}));
-
-jest.mock('~/server/services/Files/images/avatar', () => ({
-  resizeAvatar: jest.fn(),
-}));
-
-jest.mock('~/server/services/Files/S3/crud', () => ({
-  refreshS3Url: jest.fn(),
-}));
-
-jest.mock('~/server/services/Files/process', () => ({
-  filterFile: jest.fn(),
-}));
-
-jest.mock('~/server/utils/getFileStrategy', () => ({
-  getFileStrategy: jest.fn(),
-}));
-
-jest.mock('~/server/services/Config', () => ({
-  getCachedTools: jest.fn().mockResolvedValue({}),
-}));
-
-jest.mock('~/config', () => ({
-  getMCPServersRegistry: jest.fn().mockReturnValue({ getServerRegistry: jest.fn().mockReturnValue({}) }),
-}));
-
-jest.mock('~/cache', () => ({
-  getLogStores: jest.fn().mockReturnValue({ get: jest.fn(), set: jest.fn() }),
-}));
-
-const {
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  findCategoryByValue,
-} = require('~/models');
+const { createCategory, updateCategory, deleteCategory, findCategoryByValue } = require('~/models');
 
 const v1 = require('./v1');
 
@@ -125,7 +46,9 @@ describe('Category CRUD Handlers', () => {
       const created = { value: 'marketing', label: 'Marketing', custom: true, isActive: true };
       createCategory.mockResolvedValue(created);
 
-      const req = { body: { value: 'marketing', label: 'Marketing', description: 'Marketing team' } };
+      const req = {
+        body: { value: 'marketing', label: 'Marketing', description: 'Marketing team' },
+      };
       const res = mockRes();
       await v1.createCategory(req, res);
 
