@@ -40,9 +40,16 @@ jest.mock('~/store', () => ({
   ephemeralAgentByConvoId: jest.fn(() => ({ key: 'mock' })),
 }));
 
+let mockEndpointsData: Record<string, unknown> | undefined;
+
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: jest.fn(() => ({
-    getQueryData: jest.fn(),
+    getQueryData: jest.fn((key: unknown[]) => {
+      if (Array.isArray(key) && key[0] === 'endpoints') {
+        return mockEndpointsData;
+      }
+      return undefined;
+    }),
     refetchQueries: jest.fn(),
   })),
 }));
@@ -54,8 +61,10 @@ jest.mock('~/data-provider', () => ({
   })),
 }));
 
+const mockLocalize = (key: string) => key;
+
 jest.mock('~/hooks/useLocalize', () => {
-  const fn = jest.fn((key: string) => key) as jest.Mock & {
+  const fn = jest.fn(() => mockLocalize) as jest.Mock & {
     TranslationKeys: Record<string, never>;
   };
   fn.TranslationKeys = {};
@@ -104,6 +113,7 @@ describe('useFileHandling', () => {
     jest.clearAllMocks();
     mockConversation = {};
     mockIsTemporary = false;
+    mockEndpointsData = undefined;
   });
 
   const loadHook = async () => (await import('../useFileHandling')).default;
@@ -371,6 +381,104 @@ describe('useFileHandling', () => {
       expect(formData.get('agent_id')).toBe('agent-123');
       expect(formData.get('conversationId')).toBeNull();
       expect(formData.get('isTemporary')).toBeNull();
+    });
+  });
+
+  describe('provider upload fallback', () => {
+    const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    it('reroutes unsupported file to context when context capability is enabled', async () => {
+      mockConversation = { conversationId: 'c1', endpoint: 'anthropic', endpointType: undefined };
+      mockEndpointsData = { agents: { capabilities: ['context'] } };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+      const xlsx = new File(['x'], 'data.xlsx', { type: XLSX });
+
+      await act(async () => {
+        await result.current.handleFiles([xlsx]);
+      });
+
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+      const formData: FormData = mockMutate.mock.calls[0][0];
+      expect(formData.get('tool_resource')).toBe('context');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'info', message: 'com_ui_upload_auto_text' }),
+      );
+    });
+
+    it('does not reroute a pdf on anthropic', async () => {
+      mockConversation = { conversationId: 'c1', endpoint: 'anthropic', endpointType: undefined };
+      mockEndpointsData = { agents: { capabilities: ['context'] } };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+      const pdf = new File(['x'], 'doc.pdf', { type: 'application/pdf' });
+
+      await act(async () => {
+        await result.current.handleFiles([pdf]);
+      });
+
+      const formData: FormData = mockMutate.mock.calls[0][0];
+      expect(formData.get('tool_resource')).toBeNull();
+    });
+
+    it('does not reroute when an explicit tool resource is given', async () => {
+      mockConversation = { conversationId: 'c1', endpoint: 'anthropic', endpointType: undefined };
+      mockEndpointsData = { agents: { capabilities: ['context'] } };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+      const xlsx = new File(['x'], 'data.xlsx', { type: XLSX });
+
+      await act(async () => {
+        await result.current.handleFiles([xlsx], 'file_search');
+      });
+
+      const formData: FormData = mockMutate.mock.calls[0][0];
+      expect(formData.get('tool_resource')).toBe('file_search');
+      expect(mockShowToast).not.toHaveBeenCalled();
+    });
+
+    it('blocks unsupported file when context capability is disabled', async () => {
+      mockConversation = { conversationId: 'c1', endpoint: 'anthropic', endpointType: undefined };
+      mockEndpointsData = { agents: { capabilities: [] } };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+      const xlsx = new File(['x'], 'data.xlsx', { type: XLSX });
+
+      await act(async () => {
+        await result.current.handleFiles([xlsx]);
+      });
+
+      expect(mockMutate).not.toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'error', message: 'com_ui_upload_provider_unsupported' }),
+      );
+    });
+
+    it('skips reroute on the assistants endpoint', async () => {
+      mockConversation = {
+        conversationId: 'c1',
+        endpoint: 'assistants',
+        endpointType: 'assistants',
+        assistant_id: 'asst-1',
+        model: 'gpt-4',
+      };
+      mockEndpointsData = { agents: { capabilities: ['context'] } };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+      const xlsx = new File(['x'], 'data.xlsx', { type: XLSX });
+
+      await act(async () => {
+        await result.current.handleFiles([xlsx]);
+      });
+
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+      const formData: FormData = mockMutate.mock.calls[0][0];
+      expect(formData.get('tool_resource')).toBeNull();
     });
   });
 });
