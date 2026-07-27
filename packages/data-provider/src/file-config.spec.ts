@@ -1,5 +1,7 @@
 import type { FileConfig } from './types/files';
 import {
+  isProviderUploadSupported,
+  getProviderUploadAccept,
   fileConfig as baseFileConfig,
   isPermissiveMimeConfig,
   convertStringsToRegex,
@@ -1334,5 +1336,75 @@ describe('isPermissiveMimeConfig', () => {
   it('returns true for regex produced by convertStringsToRegex with .*', () => {
     const converted = convertStringsToRegex(['.*']);
     expect(isPermissiveMimeConfig(converted)).toBe(true);
+  });
+});
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+describe('isProviderUploadSupported', () => {
+  it('rejects xlsx on anthropic (only images + pdf)', () => {
+    expect(isProviderUploadSupported(XLSX_MIME, { provider: 'anthropic' })).toBe(false);
+  });
+
+  it('accepts pdf and png on anthropic', () => {
+    expect(isProviderUploadSupported('application/pdf', { provider: 'anthropic' })).toBe(true);
+    expect(isProviderUploadSupported('image/png', { provider: 'anthropic' })).toBe(true);
+  });
+
+  it('accepts xlsx on bedrock (document formats)', () => {
+    expect(isProviderUploadSupported(XLSX_MIME, { provider: 'bedrock' })).toBe(true);
+  });
+
+  it('accepts video on google, rejects on anthropic', () => {
+    expect(isProviderUploadSupported('video/mp4', { provider: 'google' })).toBe(true);
+    expect(isProviderUploadSupported('video/mp4', { provider: 'anthropic' })).toBe(false);
+  });
+
+  it('azureOpenAI: pdf rejected without responsesApi, accepted with it', () => {
+    expect(
+      isProviderUploadSupported('application/pdf', {
+        provider: 'azureOpenAI',
+        endpointType: 'azureOpenAI',
+      }),
+    ).toBe(false);
+    expect(
+      isProviderUploadSupported('application/pdf', {
+        provider: 'azureOpenAI',
+        endpointType: 'azureOpenAI',
+        useResponsesApi: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('falls back to images only for providers without document support', () => {
+    expect(isProviderUploadSupported('image/png', { provider: 'azureOpenAI' })).toBe(true);
+    expect(isProviderUploadSupported('text/plain', { provider: 'azureOpenAI' })).toBe(false);
+  });
+
+  it('handles nullish mime types', () => {
+    expect(isProviderUploadSupported(null, { provider: 'anthropic' })).toBe(false);
+    expect(isProviderUploadSupported(undefined, { provider: 'anthropic' })).toBe(false);
+  });
+});
+
+describe('getProviderUploadAccept', () => {
+  it('anthropic → images + pdf', () => {
+    expect(getProviderUploadAccept({ provider: 'anthropic' })).toBe(
+      'image/*,.heif,.heic,.pdf,application/pdf',
+    );
+  });
+
+  it('google → images + pdf + video + audio', () => {
+    expect(getProviderUploadAccept({ provider: 'google' })).toBe(
+      'image/*,.heif,.heic,.pdf,application/pdf,video/*,audio/*',
+    );
+  });
+
+  it('bedrock → images + document extensions', () => {
+    expect(getProviderUploadAccept({ provider: 'bedrock' })).toContain('.xlsx');
+  });
+
+  it('provider without document support → images only', () => {
+    expect(getProviderUploadAccept({ provider: 'azureOpenAI' })).toBe('image/*,.heif,.heic');
   });
 });

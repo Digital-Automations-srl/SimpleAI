@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import type { EndpointFileConfig, FileConfig } from './types/files';
-import { EModelEndpoint, isAgentsEndpoint, isDocumentSupportedProvider } from './schemas';
+import {
+  EModelEndpoint,
+  isAgentsEndpoint,
+  isDocumentSupportedProvider,
+  Providers,
+} from './schemas';
 import { normalizeEndpointName } from './utils';
 
 export const supportsFiles = {
@@ -177,6 +182,75 @@ export const isBedrockDocumentType = (mimeType?: string): boolean =>
 /** File extensions accepted by Bedrock document uploads (for input accept attributes) */
 export const bedrockDocumentExtensions =
   '.pdf,.csv,.doc,.docx,.xls,.xlsx,.html,.htm,.txt,.md,application/pdf,text/csv,application/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/html,text/plain,text/markdown';
+
+export interface ProviderUploadOptions {
+  provider?: string | null;
+  endpoint?: string | null;
+  endpointType?: string | null;
+  useResponsesApi?: boolean;
+}
+
+const getProviderUploadCapability = (
+  opts: ProviderUploadOptions,
+): { documentSupported: boolean; imageVideoAudio: boolean; bedrock: boolean } => {
+  const { provider, endpoint, endpointType, useResponsesApi } = opts;
+  let currentProvider = provider || endpoint;
+  if (currentProvider?.toLowerCase() === Providers.OPENROUTER) {
+    currentProvider = Providers.OPENROUTER;
+  }
+  const isAzureWithResponsesApi =
+    (currentProvider === EModelEndpoint.azureOpenAI ||
+      endpointType === EModelEndpoint.azureOpenAI) &&
+    useResponsesApi === true;
+  const documentSupported =
+    isDocumentSupportedProvider(endpointType) ||
+    isDocumentSupportedProvider(currentProvider) ||
+    isAzureWithResponsesApi;
+  const imageVideoAudio =
+    currentProvider === EModelEndpoint.google || currentProvider === Providers.OPENROUTER;
+  const bedrock = currentProvider === Providers.BEDROCK || endpointType === EModelEndpoint.bedrock;
+  return { documentSupported, imageVideoAudio, bedrock };
+};
+
+/** Whether a MIME type can be sent on the provider upload path (as image/document) */
+export const isProviderUploadSupported = (
+  mimeType: string | null | undefined,
+  opts: ProviderUploadOptions,
+): boolean => {
+  const type = mimeType ?? '';
+  const isImage = type.startsWith('image/');
+  const { documentSupported, imageVideoAudio, bedrock } = getProviderUploadCapability(opts);
+  if (!documentSupported) {
+    return isImage;
+  }
+  if (imageVideoAudio) {
+    return (
+      isImage ||
+      type.startsWith('video/') ||
+      type.startsWith('audio/') ||
+      type === 'application/pdf'
+    );
+  }
+  if (bedrock) {
+    return isImage || isBedrockDocumentType(type);
+  }
+  return isImage || type === 'application/pdf';
+};
+
+/** `accept` attribute value for the provider upload path of a given provider */
+export const getProviderUploadAccept = (opts: ProviderUploadOptions): string => {
+  const { documentSupported, imageVideoAudio, bedrock } = getProviderUploadCapability(opts);
+  if (!documentSupported) {
+    return 'image/*,.heif,.heic';
+  }
+  if (imageVideoAudio) {
+    return 'image/*,.heif,.heic,.pdf,application/pdf,video/*,audio/*';
+  }
+  if (bedrock) {
+    return `image/*,.heif,.heic,${bedrockDocumentExtensions}`;
+  }
+  return 'image/*,.heif,.heic,.pdf,application/pdf';
+};
 
 export const excelMimeTypes =
   /^application\/(vnd\.ms-excel|msexcel|x-msexcel|x-ms-excel|x-excel|x-dos_ms_excel|xls|x-xls|vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/;
