@@ -202,6 +202,42 @@ Note:
 
 ## 6. Aggiornamenti upstream (LibreChat)
 
+### Modello di gestione: il fork è uno strato sottile, non un software a sé
+
+SimpleAI **non ricostruisce l'immagine Docker**: in produzione gira l'immagine
+ufficiale `ghcr.io/danny-avila/librechat`, e la nostra build del client
+(`client/dist/`) viene **bind-montata** sopra `/app/client/dist`. Il frontend è
+quindi "iniettato" come i file lato server — la "build" è solo `npm run build`
+(il bundle), non un'immagine custom.
+
+Il repo ha due remoti:
+
+| Remoto | Punta a | Chi scrive |
+|---|---|---|
+| `origin` | `Digital-Automations-srl/SimpleAI` | **Noi** |
+| `upstream` | `danny-avila/LibreChat` | LibreChat (solo lettura per noi) |
+
+"Upstream" = il progetto originale a monte. Loro continuano a sviluppare; noi
+manteniamo sopra il loro codice un **sottile strato di differenze**. Da questo
+derivano **due sole attività**:
+
+1. **Manutenere il nostro codice** (continuo, sotto nostro controllo): modifica →
+   `npm run build` → commit (sorgente **+** `client/dist`) → push → `git pull` sul
+   server. Lavoro ordinario, nessuna incognita.
+2. **Gestire i disallineamenti** (occasionale, deciso da noi): il merge da
+   upstream quando vogliamo adottare una nuova versione. Upstream **non spinge
+   niente in automatico** — finché non facciamo `fetch`/`merge` restiamo sulla
+   versione attuale e tutto funziona. I conflitti escono **solo** sui file che
+   abbiamo toccato anche noi; sul resto git fonde da solo.
+
+**Leva di costo:** l'attività 2 dipende dalla 1. Più modifiche sparse/invasive
+facciamo, più conflitti ai merge. Dove possibile preferire l'**iniezione lato
+server** (file isolato, niente build) al toccare il frontend. La "lista di
+modifiche da replicare" non va scritta a parte: **è il diff del fork verso il tag
+upstream** (`git diff upstream/main --name-only`).
+
+### Procedura
+
 Il repository SimpleAI è un **fork** di `danny-avila/LibreChat`. Per incorporare aggiornamenti upstream:
 
 ```bash
