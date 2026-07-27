@@ -7,13 +7,17 @@ import {
   QueryKeys,
   Constants,
   EToolResources,
+  EModelEndpoint,
   mergeFileConfig,
+  AgentCapabilities,
   isAssistantsEndpoint,
   getEndpointFileConfig,
+  defaultAgentCapabilities,
   defaultAssistantsVersion,
+  isProviderUploadSupported,
 } from 'librechat-data-provider';
 import debounce from 'lodash/debounce';
-import type { EModelEndpoint, TEndpointsConfig, TError } from 'librechat-data-provider';
+import type { Agent, TEndpointsConfig, TError } from 'librechat-data-provider';
 import type { ExtendedFile, FileSetter } from '~/common';
 import type { TConversation } from 'librechat-data-provider';
 import { logger, validateFiles, cachePreview, getCachedPreview, removePreviewEntry } from '~/utils';
@@ -81,6 +85,19 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
   const { data: fileConfig = null } = useGetFileConfig({
     select: (data) => mergeFileConfig(data),
   });
+
+  const resolveProviderContext = useCallback(() => {
+    const endpointsConfig = queryClient.getQueryData<TEndpointsConfig>([QueryKeys.endpoints]);
+    const agentId = conversation?.agent_id;
+    const agent = agentId ? queryClient.getQueryData<Agent>([QueryKeys.agent, agentId]) : undefined;
+    const provider = agent?.provider ?? endpoint;
+    const capabilities =
+      endpointsConfig?.[EModelEndpoint.agents]?.capabilities ?? defaultAgentCapabilities;
+    const contextEnabled = capabilities.includes(AgentCapabilities.context);
+    const useResponsesApi =
+      conversation?.useResponsesApi ?? agent?.model_parameters?.useResponsesApi;
+    return { provider, contextEnabled, useResponsesApi };
+  }, [queryClient, conversation, endpoint]);
 
   const displayToast = useCallback(() => {
     if (errors.length > 1) {
@@ -314,8 +331,37 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
       return;
     }
 
+    const { provider, contextEnabled, useResponsesApi } = resolveProviderContext();
+    const isProviderPath = _toolResource == null || _toolResource === '';
+    const skipReroute = isAssistantsEndpoint(endpointType ?? endpoint);
+
     /* Process files */
     for (const originalFile of fileList) {
+      let effectiveToolResource = _toolResource;
+      if (isProviderPath && !skipReroute) {
+        const supported = isProviderUploadSupported(originalFile.type, {
+          provider,
+          endpoint,
+          endpointType,
+          useResponsesApi,
+        });
+        if (!supported && contextEnabled) {
+          effectiveToolResource = EToolResources.context;
+          showToast({
+            message: localize('com_ui_upload_auto_text', { 0: originalFile.name }),
+            status: 'info',
+            duration: 3000,
+          });
+        } else if (!supported) {
+          showToast({
+            message: localize('com_ui_upload_provider_unsupported', { 0: originalFile.name }),
+            status: 'error',
+            duration: 5000,
+          });
+          continue;
+        }
+      }
+
       const file_id = v4();
       try {
         // Create initial preview with original file
@@ -332,8 +378,8 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
           size: originalFile.size,
         };
 
-        if (_toolResource != null && _toolResource !== '') {
-          initialExtendedFile.tool_resource = _toolResource;
+        if (effectiveToolResource != null && effectiveToolResource !== '') {
+          initialExtendedFile.tool_resource = effectiveToolResource;
         }
 
         // Add file immediately to show in UI

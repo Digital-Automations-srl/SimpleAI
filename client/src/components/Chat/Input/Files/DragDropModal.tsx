@@ -13,9 +13,9 @@ import {
   inferMimeType,
   EToolResources,
   EModelEndpoint,
-  isBedrockDocumentType,
   defaultAgentCapabilities,
   isDocumentSupportedProvider,
+  isProviderUploadSupported,
 } from 'librechat-data-provider';
 import {
   useAgentToolPermissions,
@@ -78,28 +78,14 @@ const DragDropModal = ({ onOptionSelect, setShowModal, files, isVisible }: DragD
       isDocumentSupportedProvider(currentProvider) ||
       isAzureWithResponsesApi
     ) {
-      const supportsImageDocVideoAudio =
-        currentProvider === EModelEndpoint.google || currentProvider === Providers.OPENROUTER;
-      const isBedrock =
-        currentProvider === Providers.BEDROCK || endpointType === EModelEndpoint.bedrock;
-
-      const isValidProviderFile = (file: File): boolean => {
-        const type = getFileType(file);
-        if (supportsImageDocVideoAudio) {
-          return (
-            type?.startsWith('image/') ||
-            type?.startsWith('video/') ||
-            type?.startsWith('audio/') ||
-            type === 'application/pdf'
-          );
-        }
-        if (isBedrock) {
-          return type?.startsWith('image/') || isBedrockDocumentType(type);
-        }
-        return type?.startsWith('image/') || type === 'application/pdf';
-      };
-
-      const validFileTypes = files.every(isValidProviderFile);
+      const validFileTypes = files.every((file) =>
+        isProviderUploadSupported(getFileType(file), {
+          provider: currentProvider,
+          endpoint,
+          endpointType,
+          useResponsesApi,
+        }),
+      );
 
       _options.push({
         label: localize('com_ui_upload_provider'),
