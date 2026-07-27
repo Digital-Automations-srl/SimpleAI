@@ -1,7 +1,6 @@
 import type { FileConfig } from './types/files';
 import {
   isProviderUploadSupported,
-  getProviderUploadAccept,
   fileConfig as baseFileConfig,
   isPermissiveMimeConfig,
   convertStringsToRegex,
@@ -1384,27 +1383,5 @@ describe('isProviderUploadSupported', () => {
   it('handles nullish mime types', () => {
     expect(isProviderUploadSupported(null, { provider: 'anthropic' })).toBe(false);
     expect(isProviderUploadSupported(undefined, { provider: 'anthropic' })).toBe(false);
-  });
-});
-
-describe('getProviderUploadAccept', () => {
-  it('anthropic → images + pdf', () => {
-    expect(getProviderUploadAccept({ provider: 'anthropic' })).toBe(
-      'image/*,.heif,.heic,.pdf,application/pdf',
-    );
-  });
-
-  it('google → images + pdf + video + audio', () => {
-    expect(getProviderUploadAccept({ provider: 'google' })).toBe(
-      'image/*,.heif,.heic,.pdf,application/pdf,video/*,audio/*',
-    );
-  });
-
-  it('bedrock → images + document extensions', () => {
-    expect(getProviderUploadAccept({ provider: 'bedrock' })).toContain('.xlsx');
-  });
-
-  it('provider without document support → images only', () => {
-    expect(getProviderUploadAccept({ provider: 'azureOpenAI' })).toBe('image/*,.heif,.heic');
   });
 });

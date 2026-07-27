@@ -21,7 +21,7 @@ import {
   EModelEndpoint,
   isPermissiveMimeConfig,
   defaultAgentCapabilities,
-  getProviderUploadAccept,
+  bedrockDocumentExtensions,
   isDocumentSupportedProvider,
 } from 'librechat-data-provider';
 import type { EndpointFileConfig, TConversation } from 'librechat-data-provider';
@@ -40,7 +40,12 @@ import { ephemeralAgentByConvoId } from '~/store';
 import { MenuItemProps } from '~/common';
 import { cn } from '~/utils';
 
-type FileUploadType = 'image' | 'provider';
+type FileUploadType =
+  | 'image'
+  | 'document'
+  | 'image_document'
+  | 'image_document_extended'
+  | 'image_document_video_audio';
 
 interface AttachFileMenuProps {
   agentId?: string | null;
@@ -119,20 +124,21 @@ const AttachFileMenu = ({
         inputRef.current.accept = '';
       } else if (fileType === 'image') {
         inputRef.current.accept = 'image/*,.heif,.heic';
-      } else if (fileType === 'provider') {
-        inputRef.current.accept = getProviderUploadAccept({
-          provider: provider ?? endpoint,
-          endpoint,
-          endpointType,
-          useResponsesApi,
-        });
+      } else if (fileType === 'document') {
+        inputRef.current.accept = '.pdf,application/pdf';
+      } else if (fileType === 'image_document') {
+        inputRef.current.accept = 'image/*,.heif,.heic,.pdf,application/pdf';
+      } else if (fileType === 'image_document_extended') {
+        inputRef.current.accept = `image/*,.heif,.heic,${bedrockDocumentExtensions}`;
+      } else if (fileType === 'image_document_video_audio') {
+        inputRef.current.accept = 'image/*,.heif,.heic,.pdf,application/pdf,video/*,audio/*';
       } else {
         inputRef.current.accept = '';
       }
       inputRef.current.click();
       inputRef.current.accept = '';
     },
-    [endpointFileConfig?.supportedMimeTypes, provider, endpoint, endpointType, useResponsesApi],
+    [endpointFileConfig?.supportedMimeTypes],
   );
 
   const dropdownItems = useMemo(() => {
@@ -164,7 +170,16 @@ const AttachFileMenu = ({
           label: localize('com_ui_upload_provider'),
           onClick: () => {
             setToolResource(undefined);
-            onAction('provider');
+            let fileType: Exclude<FileUploadType, 'image' | 'document'> = 'image_document';
+            if (currentProvider === Providers.GOOGLE || currentProvider === Providers.OPENROUTER) {
+              fileType = 'image_document_video_audio';
+            } else if (
+              currentProvider === Providers.BEDROCK ||
+              endpointType === EModelEndpoint.bedrock
+            ) {
+              fileType = 'image_document_extended';
+            }
+            onAction(fileType);
           },
           icon: <FileImageIcon className="icon-md" />,
         });

@@ -237,21 +237,6 @@ export const isProviderUploadSupported = (
   return isImage || type === 'application/pdf';
 };
 
-/** `accept` attribute value for the provider upload path of a given provider */
-export const getProviderUploadAccept = (opts: ProviderUploadOptions): string => {
-  const { documentSupported, imageVideoAudio, bedrock } = getProviderUploadCapability(opts);
-  if (!documentSupported) {
-    return 'image/*,.heif,.heic';
-  }
-  if (imageVideoAudio) {
-    return 'image/*,.heif,.heic,.pdf,application/pdf,video/*,audio/*';
-  }
-  if (bedrock) {
-    return `image/*,.heif,.heic,${bedrockDocumentExtensions}`;
-  }
-  return 'image/*,.heif,.heic,.pdf,application/pdf';
-};
-
 export const excelMimeTypes =
   /^application\/(vnd\.ms-excel|msexcel|x-msexcel|x-ms-excel|x-excel|x-dos_ms_excel|xls|x-xls|vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/;
 
