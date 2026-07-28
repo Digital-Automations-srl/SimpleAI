@@ -1,0 +1,17 @@
+{
+  "version": "2.0.1",
+  "entries": [
+    {
+      "version": "2.0.1",
+      "date": "2026-04-16",
+      "title": "Ragionamento avanzato e miglioramenti UI",
+      "changes": [
+        "Aggiunto supporto GPT-5.2 Reasoning con ragionamento avanzato",
+        "Migliorata la pagina di condivisione conversazioni",
+        "Copia semantica preserva ora gli stili originali",
+        "Interfaccia rinominata da LibreChat a Simple AI",
+        "Aggiunto changelog novita' e form segnalazione migliorie"
+      ]
+    }
+  ]
+}
