@@ -43,7 +43,7 @@ export default function ChangelogModal({
   return (
     <OGDialog open={open} onOpenChange={onOpenChange}>
       <DialogTemplate
-        title={localize('com_nav_whats_new') ?? "Novita'"}
+        title={localize('com_nav_whats_new')}
         className="w-11/12 max-w-2xl sm:w-3/4 md:w-1/2"
         showCloseButton={true}
         showCancelButton={false}
@@ -51,14 +51,12 @@ export default function ChangelogModal({
           <section
             tabIndex={0}
             className="max-h-[60vh] overflow-y-auto p-4"
-            aria-label={localize('com_nav_whats_new') ?? "Novita'"}
+            aria-label={localize('com_nav_whats_new')}
           >
             {data.entries.map((entry) => (
               <div key={entry.version} className="mb-6 last:mb-0">
                 <div className="mb-2 flex items-baseline gap-2">
-                  <h3 className="text-lg font-semibold text-text-primary">
-                    v{entry.version}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-text-primary">{`v${entry.version}`}</h3>
                   <span className="text-xs text-text-secondary">{entry.date}</span>
                 </div>
                 <p className="mb-2 text-sm font-medium text-text-primary">{entry.title}</p>
@@ -78,7 +76,7 @@ export default function ChangelogModal({
             onClick={handleDismiss}
             className="inline-flex h-10 items-center justify-center rounded-lg border border-border-heavy bg-surface-secondary px-4 py-2 text-sm text-text-primary hover:bg-green-500 hover:text-white focus:bg-green-500 focus:text-white dark:hover:bg-green-600 dark:focus:bg-green-600"
           >
-            {localize('com_ui_confirm_action') ?? 'Ho capito'}
+            {localize('com_ui_changelog_dismiss')}
           </button>
         }
       />
