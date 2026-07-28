@@ -1118,6 +1118,19 @@ export const useResendVerificationEmail = (
   });
 };
 
+export const useSubmitImprovementReportMutation = (options?: {
+  onSuccess?: (data: t.TImprovementReportResponse) => void;
+  onError?: (error: unknown) => void;
+}): UseMutationResult<t.TImprovementReportResponse, unknown, t.TImprovementReport, unknown> => {
+  return useMutation(
+    (variables: t.TImprovementReport) => dataService.submitImprovementReport(variables),
+    {
+      onSuccess: (data) => options?.onSuccess?.(data),
+      onError: options?.onError,
+    },
+  );
+};
+
 export const useAcceptTermsMutation = (
   options?: t.AcceptTermsMutationOptions,
 ): UseMutationResult<t.TAcceptTermsResponse, unknown, void, unknown> => {

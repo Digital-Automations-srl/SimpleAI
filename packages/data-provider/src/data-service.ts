@@ -1,4 +1,5 @@
 import type { AxiosResponse } from 'axios';
+import type { TImprovementReport, TImprovementReportResponse } from './improvement-report';
 import type { TContextProjectionRequest, TContextUsageEvent } from './types/runs';
 import type { TFileConfig } from './file-config';
 import type * as t from './types';
@@ -588,6 +589,12 @@ export const revertAgentVersion = ({
  */
 export const getAgentCategories = (): Promise<t.TMarketplaceCategory[]> => {
   return request.get(endpoints.agents({ path: 'categories' }));
+};
+
+export const submitImprovementReport = (
+  data: TImprovementReport,
+): Promise<TImprovementReportResponse> => {
+  return request.post(endpoints.improvementReports(), data);
 };
 
 export const createAgentCategory = (data: t.TCategory): Promise<t.TCategory> => {

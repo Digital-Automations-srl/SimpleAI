@@ -1,4 +1,5 @@
 const accessPermissions = require('./accessPermissions');
+const improvementReports = require('./improvementReports');
 const assistants = require('./assistants');
 const categories = require('./categories');
 const adminAuth = require('./admin/auth');
@@ -58,6 +59,7 @@ module.exports = {
   files,
   share,
   banner,
+  improvementReports,
   agents,
   convos,
   search,

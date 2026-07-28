@@ -55,6 +55,8 @@ export * from './skills';
 export * from './endpoints';
 /* Files */
 export * from './files';
+/* Improvement reports */
+export * from './improvementReports';
 /* Storage */
 export * from './storage';
 /* Tools */

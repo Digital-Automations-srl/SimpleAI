@@ -2,6 +2,10 @@ import type { RoleMethods, RoleDeps } from './role';
 import { createSessionMethods, DEFAULT_REFRESH_TOKEN_EXPIRY, type SessionMethods } from './session';
 import { createUserMethods, DEFAULT_SESSION_EXPIRY, type UserMethods } from './user';
 import { createFileMethods, type FileMethods, type FileOwnerScope } from './file';
+import {
+  createImprovementReportMethods,
+  type ImprovementReportMethods,
+} from './improvementReport';
 import { createTokenMethods, type TokenMethods } from './token';
 import { createRoleMethods, RoleConflictError } from './role';
 import { createKeyMethods, type KeyMethods } from './key';
@@ -117,6 +121,7 @@ export type AllMethods = UserMethods &
   RoleMethods &
   KeyMethods &
   FileMethods &
+  ImprovementReportMethods &
   MemoryMethods &
   AgentCategoryMethods &
   AgentApiKeyMethods &
@@ -244,6 +249,7 @@ export function createMethods(
     ...roleMethods,
     ...createKeyMethods(mongoose),
     ...createFileMethods(mongoose),
+    ...createImprovementReportMethods(mongoose),
     ...createMemoryMethods(mongoose),
     ...createAgentCategoryMethods(mongoose),
     ...createAgentApiKeyMethods(mongoose),
@@ -289,6 +295,7 @@ export type {
   KeyMethods,
   FileMethods,
   FileOwnerScope,
+  ImprovementReportMethods,
   MemoryMethods,
   AgentCategoryMethods,
   AgentApiKeyMethods,
