@@ -122,11 +122,23 @@ endpoints:
         instanceName: "${AZURE_INSTANCE_NAME}"
         version: "${AZURE_API_VERSION}"
         models:
-          gpt-5.2:
+          "gpt-chat-latest":
+            deploymentName: gpt-chat-latest
+          "gpt-5.4":
+            deploymentName: gpt-5.4
+          "gpt-5.4-mini":
+            deploymentName: gpt-5.4-mini
+          "gpt-5.4-nano":
+            deploymentName: gpt-5.4-nano
+          "gpt-5.3-chat":
+            deploymentName: gpt-5.3-chat
+          "gpt-5.2-chat":
+            deploymentName: gpt-5.2-chat
+          "gpt-5.2":
             deploymentName: gpt-5.2
-          gpt-5.1:
+          "gpt-5.1":
             deploymentName: gpt-5.1
-          gpt-5:
+          "gpt-5":
             deploymentName: gpt-5
 
   google:
@@ -138,19 +150,27 @@ endpoints:
     titleModel: "claude-haiku-4-5"
     titleMethod: "completion"
     vertex:
-      region: "europe-west1"
+      region: "global"
       projectId: "simple-ai-saas-5"
       serviceKeyFile: "/api/data/auth.json"
       models:
-        claude-sonnet-4-6:
-          deploymentName: claude-sonnet-4-6
-        claude-sonnet-4-5:
-          deploymentName: claude-sonnet-4-5
-        claude-opus-4-6:
+        "claude-sonnet-5":
+          deploymentName: claude-sonnet-5
+        "claude-fable-5":
+          deploymentName: claude-fable-5
+        "claude-opus-4-8":
+          deploymentName: claude-opus-4-8
+        "claude-opus-4-7":
+          deploymentName: claude-opus-4-7
+        "claude-opus-4-6":
           deploymentName: claude-opus-4-6
-        claude-opus-4-5:
+        "claude-opus-4-5":
           deploymentName: claude-opus-4-5
-        claude-haiku-4-5:
+        "claude-sonnet-4-6":
+          deploymentName: claude-sonnet-4-6
+        "claude-sonnet-4-5":
+          deploymentName: claude-sonnet-4-5
+        "claude-haiku-4-5":
           deploymentName: claude-haiku-4-5
 
   agents:
@@ -175,36 +195,297 @@ webSearch:
   scraperTimeout: 5000
 
 modelSpecs:
+  prioritize: true
+  # enforce resta false: con modelSelect/presets/parameters attivi entrerebbe in conflitto
+  enforce: false
+  # Solo gli endpoint elencati restano navigabili come tali; i provider coperti dagli
+  # spec spariscono dal selettore, eliminando i doppioni col nome tecnico del modello.
+  addedEndpoints:
+    - agents
+
+  # Esposti: 3 per provider (migliore / equilibrato / economico), 8 voci in tutto.
+  # Le mappe "models:" degli endpoint restano COMPLETE: gli agenti e le conversazioni
+  # storiche continuano a risolvere qualunque modello configurato, anche se non compare
+  # qui. NON rimuovere voci dalla mappa di azureOpenAI: mapModelToAzureConfig lancia
+  # 'Model named "X" not found in configuration.' e ogni agente fissato su quel modello
+  # si rompe. Su Vertex il comportamento è invece passthrough e non rompe nulla.
   list:
-    - name: "gpt-5.2-reasoning"
-      label: "GPT-5.2 Reasoning"
-      description: "GPT-5.2 con ragionamento avanzato attivo"
-      group: "azureOpenAI"
+    - name: opus-4-8
+      label: Opus 4.8
+      description: "Il modello Anthropic più capace: analisi complesse e ragionamento profondo"
+      group: Anthropic
+      groupIcon: anthropic
+      iconURL: anthropic
+      order: 10
       preset:
-        endpoint: "azureOpenAI"
-        model: "gpt-5.2"
+        endpoint: anthropic
+        model: claude-opus-4-8
+    - name: sonnet-5
+      label: Sonnet 5
+      description: "Ultima generazione Sonnet — solo chat: non usare con agenti o strumenti"
+      group: Anthropic
+      groupIcon: anthropic
+      iconURL: anthropic
+      order: 11
+      preset:
+        endpoint: anthropic
+        model: claude-sonnet-5
+      softDefault: true
+    - name: haiku-4-5
+      label: Haiku 4.5
+      description: "Il più rapido ed economico: ideale per compiti brevi e ripetitivi"
+      group: Anthropic
+      groupIcon: anthropic
+      iconURL: anthropic
+      order: 12
+      preset:
+        endpoint: anthropic
+        model: claude-haiku-4-5
+    - name: gpt-5.4
+      label: GPT-5.4
+      description: Modello OpenAI di punta per compiti generali
+      group: Azure OpenAI
+      groupIcon: azureOpenAI
+      iconURL: azureOpenAI
+      order: 20
+      preset:
+        endpoint: azureOpenAI
+        model: gpt-5.4
+    - name: gpt-5.4-mini
+      label: GPT-5.4 Mini
+      description: Versione più leggera e rapida di GPT-5.4
+      group: Azure OpenAI
+      groupIcon: azureOpenAI
+      iconURL: azureOpenAI
+      order: 21
+      preset:
+        endpoint: azureOpenAI
+        model: gpt-5.4-mini
+    - name: gemini-3-1-pro
+      label: Gemini 3.1 Pro
+      description: Il modello Google più capace — in preview
+      group: Google
+      groupIcon: google
+      iconURL: google
+      order: 30
+      preset:
+        endpoint: google
+        model: gemini-3.1-pro-preview
+    - name: gpt-5.4-reasoning
+      label: GPT-5.4 Reasoning
+      description: GPT-5.4 con ragionamento avanzato attivo
+      group: Azure OpenAI
+      groupIcon: azureOpenAI
+      iconURL: azureOpenAI
+      order: 22
+      preset:
+        endpoint: azureOpenAI
+        model: gpt-5.4
         useResponsesApi: true
-        reasoning_effort: "high"
-        reasoning_summary: "concise"
+        reasoning_effort: high
+        reasoning_summary: concise
+    - name: gemini-3-flash
+      label: Gemini 3 Flash
+      description: Rapido ed economico — in preview
+      group: Google
+      groupIcon: google
+      iconURL: google
+      order: 31
+      preset:
+        endpoint: google
+        model: gemini-3-flash-preview
 
-    - name: "gpt-5.1-reasoning"
-      label: "GPT-5.1 Reasoning"
-      description: "GPT-5.1 con ragionamento avanzato attivo"
-      group: "azureOpenAI"
-      preset:
-        endpoint: "azureOpenAI"
-        model: "gpt-5.1"
-        useResponsesApi: true
-        reasoning_effort: "high"
-        reasoning_summary: "concise"
-
-    - name: "gpt-5-reasoning"
-      label: "GPT-5 Reasoning"
-      description: "GPT-5 con ragionamento avanzato attivo"
-      group: "azureOpenAI"
-      preset:
-        endpoint: "azureOpenAI"
-        model: "gpt-5"
-        useResponsesApi: true
-        reasoning_effort: "high"
-        reasoning_summary: "concise"
+    # ------------------------------------------------------------------
+    # Non esposti nel selettore (2026-07-28). Restano utilizzabili da agenti
+    # e conversazioni esistenti; per riesporne uno basta scommentarne il blocco.
+    # ------------------------------------------------------------------
+    # - name: opus-4-7
+    #   label: Opus 4.7
+    #   description: Generazione Opus precedente, ancora molto forte sui compiti complessi
+    #   group: Anthropic
+    #   groupIcon: anthropic
+    #   iconURL: anthropic
+    #   order: 11
+    #   preset:
+    #     endpoint: anthropic
+    #     model: claude-opus-4-7
+    # - name: opus-4-6
+    #   label: Opus 4.6
+    #   description: "Opus consolidato: buon equilibrio fra qualità e costo"
+    #   group: Anthropic
+    #   groupIcon: anthropic
+    #   iconURL: anthropic
+    #   order: 12
+    #   preset:
+    #     endpoint: anthropic
+    #     model: claude-opus-4-6
+    # - name: opus-4-5
+    #   label: Opus 4.5
+    #   description: Opus più datato, mantenuto per compatibilità
+    #   group: Anthropic
+    #   groupIcon: anthropic
+    #   iconURL: anthropic
+    #   order: 13
+    #   preset:
+    #     endpoint: anthropic
+    #     model: claude-opus-4-5
+    # - name: sonnet-4-6
+    #   label: Sonnet 4.6
+    #   description: "Equilibrio fra velocità e qualità: la scelta per l'uso quotidiano"
+    #   group: Anthropic
+    #   groupIcon: anthropic
+    #   iconURL: anthropic
+    #   order: 15
+    #   softDefault: true
+    #   preset:
+    #     endpoint: anthropic
+    #     model: claude-sonnet-4-6
+    # - name: sonnet-4-5
+    #   label: Sonnet 4.5
+    #   description: Sonnet precedente, mantenuto per compatibilità
+    #   group: Anthropic
+    #   groupIcon: anthropic
+    #   iconURL: anthropic
+    #   order: 16
+    #   preset:
+    #     endpoint: anthropic
+    #     model: claude-sonnet-4-5
+    # - name: fable-5
+    #   label: Fable 5
+    #   description: Modello Anthropic orientato alla scrittura creativa
+    #   group: Anthropic
+    #   groupIcon: anthropic
+    #   iconURL: anthropic
+    #   order: 18
+    #   preset:
+    #     endpoint: anthropic
+    #     model: claude-fable-5
+    # - name: gpt-5.4-nano
+    #   label: GPT-5.4 Nano
+    #   description: La variante più economica, per compiti semplici e ad alto volume
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 22
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.4-nano
+    # - name: gpt-5.3-chat
+    #   label: GPT-5.3 Chat
+    #   description: Ottimizzato per la conversazione
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 23
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.3-chat
+    # - name: gpt-5.2-chat
+    #   label: GPT-5.2 Chat
+    #   description: Conversazionale, generazione precedente
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 24
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.2-chat
+    # - name: gpt-chat-latest
+    #   label: GPT Chat (ultima)
+    #   description: Punta sempre all'ultima versione conversazionale disponibile su Azure
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 25
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-chat-latest
+    # - name: gpt-5.2
+    #   label: GPT-5.2
+    #   description: Generazione precedente, buon compromesso qualità/costo
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 26
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.2
+    # - name: gpt-5.1
+    #   label: GPT-5.1
+    #   description: Mantenuto per compatibilità
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 27
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.1
+    # - name: gpt-5
+    #   label: GPT-5
+    #   description: Prima release della serie 5
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 28
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5
+    # - name: gpt-5.2-reasoning
+    #   label: GPT-5.2 Reasoning
+    #   description: GPT-5.2 con ragionamento avanzato attivo
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 30
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.2
+    #     useResponsesApi: true
+    #     reasoning_effort: high
+    #     reasoning_summary: concise
+    # - name: gpt-5.1-reasoning
+    #   label: GPT-5.1 Reasoning
+    #   description: GPT-5.1 con ragionamento avanzato attivo
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 31
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5.1
+    #     useResponsesApi: true
+    #     reasoning_effort: high
+    #     reasoning_summary: concise
+    # - name: gpt-5-reasoning
+    #   label: GPT-5 Reasoning
+    #   description: GPT-5 con ragionamento avanzato attivo
+    #   group: Azure OpenAI
+    #   groupIcon: azureOpenAI
+    #   iconURL: azureOpenAI
+    #   order: 32
+    #   preset:
+    #     endpoint: azureOpenAI
+    #     model: gpt-5
+    #     useResponsesApi: true
+    #     reasoning_effort: high
+    #     reasoning_summary: concise
+    # - name: gemini-2-5-pro
+    #   label: Gemini 2.5 Pro
+    #   description: Versione stabile per compiti complessi
+    #   group: Google
+    #   groupIcon: google
+    #   iconURL: google
+    #   order: 42
+    #   preset:
+    #     endpoint: google
+    #     model: gemini-2.5-pro
+    # - name: gemini-2-5-flash
+    #   label: Gemini 2.5 Flash
+    #   description: Stabile e rapido, per volumi elevati
+    #   group: Google
+    #   groupIcon: google
+    #   iconURL: google
+    #   order: 43
+    #   preset:
+    #     endpoint: google
+    #     model: gemini-2.5-flash
