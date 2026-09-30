@@ -109,6 +109,24 @@ mcpServers:
       ODOO_AI_API_KEY:
         title: "Odoo AI API Key"
         description: "User specific Odoo AI API Key"
+  gmail:
+    title: "Gmail"
+    description: "Cerca e legge le email e salva bozze nella casella Gmail dell'utente. Non invia email."
+    type: streamable-http
+    url: http://gmail-mcp:8000/mcp
+    requiresOAuth: true
+    startup: false
+    oauth:
+      authorization_url: https://accounts.google.com/o/oauth2/v2/auth?access_type=offline&prompt=consent
+      token_url: https://oauth2.googleapis.com/token
+      client_id: "${GMAIL_OAUTH_CLIENT_ID}"
+      client_secret: "${GMAIL_OAUTH_CLIENT_SECRET}"
+      scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose"
+      token_exchange_method: default_post
+
+mcpSettings:
+  allowedAddresses:
+    - "gmail-mcp:8000"
 
 
 endpoints:
