@@ -200,6 +200,27 @@ endpoints:
     minRelevanceScore: 0.45
     capabilities: ["execute_code", "file_search", "web_search", "artifacts", "actions", "tools", "context", "chain", "ocr"]
 
+  custom:
+    - name: "Regolo GLM"
+      apiKey: "${REGOLO_API_KEY}"
+      baseURL: "https://api.regolo.ai/v1"
+      models:
+        default: ["glm5.2"]
+        fetch: false
+      titleConvo: true
+      titleModel: "glm5.2"
+      modelDisplayLabel: "Regolo GLM"
+
+    - name: "Regolo Qwen"
+      apiKey: "${REGOLO_API_KEY}"
+      baseURL: "https://api.regolo.ai/v1"
+      models:
+        default: ["qwen3.5-122b", "qwen3.8-27b"]
+        fetch: false
+      titleConvo: true
+      titleModel: "qwen3.8-27b"
+      modelDisplayLabel: "Regolo Qwen"
+
 webSearch:
   searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
   searchProvider: "searxng"
@@ -312,6 +333,31 @@ modelSpecs:
       preset:
         endpoint: google
         model: gemini-3-flash-preview
+
+    - name: regolo-glm5-2
+      label: GLM 5.2
+      description: "Regolo (openweight, EU): modello GLM generalista"
+      group: Regolo
+      order: 40
+      preset:
+        endpoint: "Regolo GLM"
+        model: glm5.2
+    - name: regolo-qwen3-5-122b
+      label: Qwen 3.5 122B
+      description: "Regolo (openweight, EU): il più capace della famiglia Qwen disponibile"
+      group: Regolo
+      order: 41
+      preset:
+        endpoint: "Regolo Qwen"
+        model: qwen3.5-122b
+    - name: regolo-qwen3-8-27b
+      label: Qwen 3.8 27B
+      description: "Regolo (openweight, EU): più leggero e rapido"
+      group: Regolo
+      order: 42
+      preset:
+        endpoint: "Regolo Qwen"
+        model: qwen3.8-27b
 
     # ------------------------------------------------------------------
     # Non esposti nel selettore (2026-07-28). Restano utilizzabili da agenti
