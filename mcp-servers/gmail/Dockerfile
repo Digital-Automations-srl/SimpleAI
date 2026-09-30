@@ -1,8 +1,8 @@
 FROM node:24-alpine
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci --omit=dev
-COPY src ./src
+COPY --chown=node:node src ./src
 USER node
 EXPOSE 8000
 HEALTHCHECK CMD wget -qO- http://localhost:8000/health || exit 1
