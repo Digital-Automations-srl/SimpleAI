@@ -348,7 +348,7 @@ export const validateFileLimit = ({
   return true;
 };
 
-export type UploadSkipReason = 'duplicate' | 'fileSize';
+export type UploadSkipReason = 'duplicate' | 'fileSize' | 'type';
 
 export type SkippedUpload = {
   /** Position in the `fileList` handed to `partitionUploads`, so callers can map back to their own parallel arrays */
@@ -369,17 +369,40 @@ export type UploadPartition = {
  * here: `totalSizeLimit` is a property of the batch as a whole, so callers still run
  * `validateFileSizes` over whatever survives.
  */
+/* Unified mode routes by MIME type but does not widen what may be uploaded: the
+ * endpoint allowlist is the same ceiling the server enforces in `filterFile`, so
+ * accepting extraction-capable types beyond it only turns a preflight message into
+ * a failed request. */
+const getUploadMimeTypes = (
+  endpointFileConfig: EndpointFileConfig,
+  toolResource: string | undefined,
+  fileConfig: FileConfig | null,
+): RegexLike[] | undefined =>
+  toolResource === EToolResources.context
+    ? [
+        ...(fileConfig?.text?.supportedMimeTypes || []),
+        ...(fileConfig?.ocr?.supportedMimeTypes || []),
+        ...(fileConfig?.stt?.supportedMimeTypes || []),
+      ]
+    : endpointFileConfig.supportedMimeTypes;
+
 export const partitionUploads = ({
   files,
   fileList,
   endpointFileConfig,
   skipSizeValidation = false,
+  typeCheck,
 }: {
   fileList: File[];
   files: Map<string, ExtendedFile>;
   endpointFileConfig: EndpointFileConfig;
   skipSizeValidation?: boolean;
+  /** Skips files of an unsupported type one by one instead of letting `validateFiles` reject the batch */
+  typeCheck?: { toolResource?: string; fileConfig: FileConfig | null };
 }): UploadPartition => {
+  const mimeTypes = typeCheck
+    ? getUploadMimeTypes(endpointFileConfig, typeCheck.toolResource, typeCheck.fileConfig)
+    : undefined;
   const fileSizeLimit = skipSizeValidation ? null : getFileSizeLimit(endpointFileConfig);
   const keptIndices: number[] = [];
   const skipped: SkippedUpload[] = [];
@@ -406,6 +429,11 @@ export const partitionUploads = ({
 
     if (fileSizeLimit != null && file.size >= fileSizeLimit) {
       skipped.push({ index: i, file, reason: 'fileSize' });
+      continue;
+    }
+
+    if (typeCheck && !checkType(inferMimeType(file.name, file.type), mimeTypes)) {
+      skipped.push({ index: i, file, reason: 'type' });
       continue;
     }
 
@@ -467,7 +495,7 @@ export const validateFiles = ({
    * whole — the file count and duplicates — wait until it has dropped what it can */
   skipBatchRules?: boolean;
 }) => {
-  const { supportedMimeTypes, disabled } = endpointFileConfig;
+  const { disabled } = endpointFileConfig;
   /** Block all uploads if the endpoint is explicitly disabled */
   if (disabled === true) {
     setError('com_ui_attach_error_disabled');
@@ -500,20 +528,12 @@ export const validateFiles = ({
       fileList[i] = newFile;
     }
 
-    /* Unified mode routes by MIME type but does not widen what may be uploaded: the
-     * endpoint allowlist is the same ceiling the server enforces in `filterFile`, so
-     * accepting extraction-capable types beyond it only turns a preflight message into
-     * a failed request. */
-    let mimeTypesToCheck = supportedMimeTypes;
-    if (toolResource === EToolResources.context) {
-      mimeTypesToCheck = [
-        ...(fileConfig?.text?.supportedMimeTypes || []),
-        ...(fileConfig?.ocr?.supportedMimeTypes || []),
-        ...(fileConfig?.stt?.supportedMimeTypes || []),
-      ];
-    }
-
-    if (!checkType(originalFile.type, mimeTypesToCheck)) {
+    if (
+      !checkType(
+        originalFile.type,
+        getUploadMimeTypes(endpointFileConfig, toolResource, fileConfig),
+      )
+    ) {
       setError(`Unsupported file type: ${originalFile.type}`);
       return false;
     }

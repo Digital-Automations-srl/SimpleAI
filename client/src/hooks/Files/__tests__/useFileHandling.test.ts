@@ -466,6 +466,36 @@ describe('useFileHandling', () => {
       }
     });
 
+    it('uploads the supported files when one of them has an unsupported type', async () => {
+      jest.useFakeTimers();
+      try {
+        mockFileConfig = mergeFileConfig({});
+        const batch = [
+          makeSizedFile('photo.png', 'image/png', 1 * megabyte),
+          makeSizedFile('notes.txt', 'text/plain', 1 * megabyte),
+          makeSizedFile('setup.exe', 'application/x-msdownload', 1 * megabyte),
+        ];
+        const useFileHandling = await loadHook();
+        const { result } = renderHook(() => useFileHandling());
+
+        let accepted: boolean | undefined;
+        await act(async () => {
+          accepted = await result.current.handleFiles(batch);
+        });
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+
+        expect(accepted).toBe(true);
+        expect(mockMutate).toHaveBeenCalledTimes(2);
+        expect(mockLocalize).toHaveBeenCalledWith('com_error_files_skipped_type', {
+          0: 'setup.exe',
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('names every oversized file it skipped', async () => {
       jest.useFakeTimers();
       try {

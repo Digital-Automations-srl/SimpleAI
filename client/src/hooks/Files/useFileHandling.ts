@@ -180,15 +180,23 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
     }
     const duplicates: string[] = [];
     const oversized: string[] = [];
+    const unsupported: string[] = [];
     for (const { file, reason } of skipped) {
       if (reason === 'duplicate') {
         duplicates.push(file.name);
+        continue;
+      }
+      if (reason === 'type') {
+        unsupported.push(file.name);
         continue;
       }
       oversized.push(file.name);
     }
     if (duplicates.length > 0) {
       setError(localize('com_error_files_skipped_dupe', { 0: duplicates.join(', ') }));
+    }
+    if (unsupported.length > 0) {
+      setError(localize('com_error_files_skipped_type', { 0: unsupported.join(', ') }));
     }
     if (oversized.length > 0) {
       setError(
@@ -538,6 +546,7 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
       fileList,
       endpointFileConfig,
       skipSizeValidation: true,
+      typeCheck: { toolResource: _toolResource, fileConfig: currentFileConfig },
     });
     /** Nothing survived, so the whole selection is rejected and the untouched list reports it
      * through the usual checks in their usual order. */

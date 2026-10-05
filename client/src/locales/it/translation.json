@@ -392,6 +392,7 @@
   "com_error_files_dupe": "File duplicato rilevato.",
   "com_error_files_empty": "I file vuoti non sono consentiti.",
   "com_error_files_process": "Si è verificato un errore durante l'elaborazione del file.",
+  "com_error_files_skipped_type": "File saltati perché di tipo non supportato: {{0}}",
   "com_error_files_unsupported": "Questo tipo di file non può essere allegato qui.",
   "com_error_files_upload": "Si è verificato un errore durante il caricamento del file.",
   "com_error_files_upload_canceled": "La richiesta di caricamento del file è stata annullata. Nota: il caricamento del file potrebbe essere ancora in corso e potrebbe essere necessario eliminarlo manualmente.",
