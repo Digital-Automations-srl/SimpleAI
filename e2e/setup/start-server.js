@@ -1,7 +1,14 @@
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
-require('dotenv').config();
+const dotenv = require('dotenv');
+/* The mock profile must not inherit a developer's root .env (endpoints, keys, footer): the
+ * server modules load it on their own, so the shared dotenv instance is disabled instead. */
+if (process.env.E2E_IGNORE_DOTENV === 'true') {
+  dotenv.config = () => ({ parsed: {} });
+} else {
+  dotenv.config();
+}
 
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017/LibreChat-e2e';
 const DEFAULT_RUNTIME_ENV_PATH = path.resolve(__dirname, '../specs/.test-results/runtime-env.json');

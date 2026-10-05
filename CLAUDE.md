@@ -49,6 +49,17 @@ Run all: `npm run test:all`. E2E: `npm run e2e` (Playwright).
 
 **Testing philosophy:** Real logic over mocks. Use spies over mocks. Use `mongodb-memory-server` for DB tests. Only mock what you cannot control (external HTTP APIs, rate-limited services). Heavy mocking is a code smell.
 
+### SimpleAI fork: tests travel with the code
+
+Every fork change ships with its tests in the same commit — unit tests for the logic and an e2e test for anything a user can see or do:
+
+- **UI e2e**: the upstream mock suite (`e2e/specs/mock/`, ~240 tests, in-memory Mongo, fake model, no real providers) covers the shared UI. `e2e/specs/mock/simpleai.spec.ts` covers what exists only in SimpleAI (branding, changelog, improvement reports, agent categories, fork-only fixes). Add or update a test there for every UI change of the fork.
+- **Run**: on Marco's machine the local LibreChat container holds port 3080, so prefix with `E2E_USE_MEMORY_MONGO=true E2E_BASE_URL=http://localhost:3180 E2E_PORT=3180`. `npm run e2e:mock` for the whole suite, or `npx playwright test --config=e2e/playwright.config.mock.ts specs/mock/simpleai.spec.ts` for the fork spec only (a bare `simpleai` filter matches the repo path and runs everything) (after `npm run frontend`).
+- **Before every commit and every deploy** run the unit suites of the touched workspaces and the e2e mock suite.
+- An upstream test broken by a deliberate fork change (e.g. branding) is updated to the fork behavior, never deleted.
+- Known environmental failures on Marco's Windows machine, not regressions: locale `it-IT` (`formatCost`, `ProviderKeyRow`, Trace Viewer cost), POSIX paths/shell/symlinks (`packages/api` hooks, plugins, `key.test`, `images.agents.test`), Redis `cache_integration` suites, Mongo replica-set specs (`rolePermissions`). E2E failing on pure upstream v0.8.8 too (verified 2026-10-05): `agent-selector-caps` › selected agent past the cut, `mermaid-artifacts` › large Mermaid export.
+- `e2e/specs/simpleai-custom.spec.ts` runs against the **production** deployment and writes data there: never run it without Marco's explicit OK.
+
 ## Linting & Formatting
 
 ```bash

@@ -13,6 +13,10 @@ interface:
   # value the permission falls through to the seeded role default and
   # `handlePlusCommand` returns before opening the popover.
   multiConvo: true
+  # SimpleAI: the agent marketplace hosts the fork's category manager, which
+  # e2e/specs/mock/simpleai.spec.ts drives. Upstream specs never open it.
+  marketplace:
+    use: true
   # Scheduled chats are EXPERIMENTAL and default-off, so the e2e harness must opt in
   # explicitly before schedule writes and fires are accepted.
   # minIntervalMinutes is lowered so the spec can create a schedule without waiting

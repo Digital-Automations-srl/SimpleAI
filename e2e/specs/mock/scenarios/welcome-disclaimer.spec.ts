@@ -13,7 +13,8 @@ import { deleteConversations, deleteMessagesByConversation, seedConversations } 
  * projects and skip the mobile one.
  */
 
-const DISCLAIMER = 'a[href="https://librechat.ai"]';
+/** SimpleAI branding links the default footer to Digital Automations instead of librechat.ai. */
+const DISCLAIMER = 'a[href="https://www.digitalautomations.it"]';
 /** WCAG AA for body text; the disclaimer renders at 12px. */
 const AA_CONTRAST = 4.5;
 

@@ -138,6 +138,11 @@ if (!externalCodeBaseUrl) {
 
 const baseEnv = {
   ...getLocalE2EEnv(),
+  /** Keep a developer's root .env (endpoints, footer, keys) out of the test server: the
+   *  plain `dotenv.config()` calls are disabled by start-server.js, and the `dotenv/config`
+   *  copy bundled into data-schemas honors this path, which does not exist. */
+  E2E_IGNORE_DOTENV: 'true',
+  DOTENV_CONFIG_PATH: path.resolve(rootPath, 'e2e/.env.e2e-none'),
   CONFIG_PATH: configPath,
   DEPLOYMENT_SKILLS_DIR: deploymentSkillsPath,
   /** Loaded in-process by `@librechat/api`'s `createRun` to swap in a fake model —
@@ -352,6 +357,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     ignoreHTTPSErrors: true,
     headless: true,
+    /** Specs assert English copy; without this the browser follows the OS language. */
+    locale: 'en-US',
     storageState: path.resolve(process.cwd(), 'e2e/storageState.json'),
     screenshot: 'only-on-failure',
   },
