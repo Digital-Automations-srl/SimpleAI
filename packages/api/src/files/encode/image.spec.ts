@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { Readable } from 'node:stream';
 import { FileSources, VisionModes } from 'librechat-data-provider';
 import type { ServerRequest } from '~/types';
@@ -242,5 +243,57 @@ describe('encodeAndFormatImages', () => {
     await expect(encodeAndFormatImages(req, [file], params, deps)).rejects.toThrow(
       'Image validation failed for image.png: Image file size',
     );
+  });
+
+  describe('when the stored type misdescribes the image bytes', () => {
+    let jpegContent: string;
+
+    beforeAll(async () => {
+      const jpeg = await sharp({
+        create: { width: 10, height: 10, channels: 3, background: '#d22' },
+      })
+        .jpeg()
+        .toBuffer();
+      jpegContent = jpeg.toString('base64');
+    });
+
+    beforeEach(() => {
+      prepareImagePayload.mockImplementation(async (_req, image) => [image, jpegContent]);
+    });
+
+    const jpegNamedPng = { ...file, source: FileSources.local, bytes: 100 };
+
+    it.each([
+      [
+        'anthropic',
+        undefined,
+        () => ({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: jpegContent },
+        }),
+      ],
+      [
+        'anthropic',
+        VisionModes.agents,
+        () => ({
+          type: 'image_url',
+          image_url: { url: `data:image/jpeg;base64,${jpegContent}`, detail: 'auto' },
+        }),
+      ],
+      [
+        'google',
+        VisionModes.generative,
+        () => ({ type: 'image_url', inlineData: { mimeType: 'image/jpeg', data: jpegContent } }),
+      ],
+    ])('declares the real media type to %s in mode %s', async (provider, mode, expected) => {
+      const result = await encodeAndFormatImages(
+        makeReq(),
+        [jpegNamedPng],
+        { provider },
+        deps,
+        mode,
+      );
+      expect(result.image_urls).toEqual([expected()]);
+    });
   });
 });

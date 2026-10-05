@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import {
   FileSources,
   VisionModes,
@@ -12,6 +13,7 @@ import type { Agents } from 'librechat-data-provider';
 import type { AxiosInstance } from 'axios';
 import type { ServerRequest, StrategyFunctions } from '~/types';
 import { getFileStream, isAttachmentObjectNotFoundError } from './utils';
+import { resolveImageMimeType } from '~/files/mime';
 import { validateImage } from '~/files/validation';
 import { runGuardedEncode } from './memoryGuard';
 import { logAxiosError } from '~/utils/axios';
@@ -73,6 +75,19 @@ const blobStorageSources = new Set<string>([
   FileSources.firebase,
   FileSources.cloudfront,
 ]);
+
+/**
+ * The stored `type` comes from the upload's extension, so a JPEG named `.png` keeps
+ * `image/png` while its bytes stay JPEG. Anthropic rejects that mismatch with a 400 on
+ * every later turn, so the declared type is taken from the bytes whenever sharp can read them.
+ */
+async function resolveMediaType(imageBuffer: Buffer, storedType: string): Promise<string> {
+  try {
+    return resolveImageMimeType(await sharp(imageBuffer).metadata()) ?? storedType;
+  } catch {
+    return storedType;
+  }
+}
 
 export class AttachmentStorageError extends Error {
   readonly code = 'ATTACHMENT_STORAGE_ERROR';
@@ -185,8 +200,8 @@ export async function encodeAndFormatImages(
     }
 
     const isURL = imageContent.startsWith('http');
-    if (file.height && file.width && !isURL) {
-      const imageBuffer = Buffer.from(imageContent, 'base64');
+    const imageBuffer = isURL ? null : Buffer.from(imageContent, 'base64');
+    if (file.height && file.width && imageBuffer) {
       const validation = await validateImage(
         imageBuffer,
         imageBuffer.length,
@@ -198,20 +213,21 @@ export async function encodeAndFormatImages(
       }
     }
 
-    const url = isURL ? imageContent : `data:${file.type};base64,${imageContent}`;
+    const mediaType = imageBuffer ? await resolveMediaType(imageBuffer, file.type) : file.type;
+    const url = isURL ? imageContent : `data:${mediaType};base64,${imageContent}`;
     if (mode === VisionModes.agents) {
       result.image_urls.push({ type: ContentTypes.IMAGE_URL, image_url: { url, detail } });
     } else if (effectiveEndpoint === EModelEndpoint.google && mode === VisionModes.generative) {
       result.image_urls.push({
         type: ContentTypes.IMAGE_URL,
-        inlineData: { mimeType: file.type, data: imageContent },
+        inlineData: { mimeType: mediaType, data: imageContent },
       });
     } else if (effectiveEndpoint === EModelEndpoint.google) {
       result.image_urls.push({ type: ContentTypes.IMAGE_URL, image_url: url });
     } else if (effectiveEndpoint === EModelEndpoint.anthropic) {
       result.image_urls.push({
         type: 'image',
-        source: { type: 'base64', media_type: file.type, data: imageContent },
+        source: { type: 'base64', media_type: mediaType, data: imageContent },
       });
     } else {
       result.image_urls.push({ type: ContentTypes.IMAGE_URL, image_url: { url, detail } });
