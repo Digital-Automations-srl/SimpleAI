@@ -635,6 +635,7 @@ export type NewConversationParams = {
   modelsData?: t.TModelsConfig;
   buildDefault?: boolean;
   keepAddedConvos?: boolean;
+  keepComposerState?: boolean;
   disableParams?: boolean;
 };
 

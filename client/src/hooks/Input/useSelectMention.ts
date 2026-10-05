@@ -124,6 +124,7 @@ export default function useSelectMention({
         },
         preset,
         keepAddedConvos: isModular,
+        keepComposerState: !isExistingConversation,
       });
     },
     [
@@ -222,6 +223,7 @@ export default function useSelectMention({
         },
         preset: { ...kwargs, spec: null, iconURL: null, modelLabel: null, endpoint: newEndpoint },
         keepAddedConvos: isNewModular,
+        keepComposerState: !isExistingConversation,
       });
     },
     [
