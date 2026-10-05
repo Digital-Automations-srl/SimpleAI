@@ -1,14 +1,14 @@
 import { useState, useCallback } from 'react';
 import { Settings, Trash2, Pencil, Plus } from 'lucide-react';
 import { OGDialog, DialogTemplate, Button, useToastContext } from '@librechat/client';
-import { useGetAgentCategoriesQuery } from '~/data-provider';
+import type { TranslationKeys } from '~/hooks';
 import {
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
 } from '~/data-provider/Agents/mutations';
+import { useGetAgentCategoriesQuery } from '~/data-provider';
 import { useLocalize } from '~/hooks';
-import type { TranslationKeys } from '~/hooks';
 
 interface CategoryForm {
   value: string;
@@ -42,7 +42,10 @@ export default function CategoryManager() {
 
   const createMutation = useCreateCategoryMutation({
     onSuccess: () => {
-      showToast({ status: 'success', message: localize('com_agents_category_created') ?? 'Category created' });
+      showToast({
+        status: 'success',
+        message: localize('com_agents_category_created') ?? 'Category created',
+      });
       setForm(emptyForm);
     },
     onError: () => showToast({ status: 'error', message: 'Error creating category' }),
@@ -50,7 +53,10 @@ export default function CategoryManager() {
 
   const updateMutation = useUpdateCategoryMutation({
     onSuccess: () => {
-      showToast({ status: 'success', message: localize('com_agents_category_updated') ?? 'Category updated' });
+      showToast({
+        status: 'success',
+        message: localize('com_agents_category_updated') ?? 'Category updated',
+      });
       setForm(emptyForm);
       setEditingValue(null);
     },
@@ -59,7 +65,10 @@ export default function CategoryManager() {
 
   const deleteMutation = useDeleteCategoryMutation({
     onSuccess: () => {
-      showToast({ status: 'success', message: localize('com_agents_category_deleted') ?? 'Category deleted' });
+      showToast({
+        status: 'success',
+        message: localize('com_agents_category_deleted') ?? 'Category deleted',
+      });
     },
     onError: () => showToast({ status: 'error', message: 'Error deleting category' }),
   });
@@ -92,7 +101,9 @@ export default function CategoryManager() {
 
   const handleDelete = useCallback(
     (value: string) => {
-      if (window.confirm(localize('com_agents_category_delete_confirm') ?? 'Delete this category?')) {
+      if (
+        window.confirm(localize('com_agents_category_delete_confirm') ?? 'Delete this category?')
+      ) {
         deleteMutation.mutate(value);
       }
     },
@@ -130,7 +141,9 @@ export default function CategoryManager() {
                       className="flex items-center justify-between rounded-lg border border-border-light px-3 py-2"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-text-primary">{getDisplayName(cat.label, cat.value)}</span>
+                        <span className="text-sm font-medium text-text-primary">
+                          {getDisplayName(cat.label, cat.value)}
+                        </span>
                         <span className="rounded bg-surface-tertiary px-1.5 py-0.5 text-xs text-text-secondary">
                           {cat.count ?? 0}
                         </span>
@@ -144,15 +157,17 @@ export default function CategoryManager() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleEdit(cat)}
+                            aria-label={`${localize('com_ui_edit')} ${getDisplayName(cat.label, cat.value)}`}
                             className="rounded p-1 text-text-secondary hover:bg-surface-active hover:text-text-primary"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
                           </button>
                           <button
                             onClick={() => handleDelete(cat.value)}
+                            aria-label={`${localize('com_ui_delete')} ${getDisplayName(cat.label, cat.value)}`}
                             className="rounded p-1 text-text-secondary hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                           </button>
                         </div>
                       )}
@@ -165,8 +180,8 @@ export default function CategoryManager() {
               <div className="rounded-lg border border-border-medium p-3">
                 <h4 className="mb-2 text-sm font-medium text-text-primary">
                   {editingValue
-                    ? localize('com_agents_category_updated') ?? 'Edit category'
-                    : localize('com_agents_new_category') ?? 'New category'}
+                    ? (localize('com_agents_category_updated') ?? 'Edit category')
+                    : (localize('com_agents_new_category') ?? 'New category')}
                 </h4>
                 <div className="flex flex-col gap-2">
                   <input
@@ -179,7 +194,9 @@ export default function CategoryManager() {
                   {!editingValue && (
                     <input
                       type="text"
-                      placeholder={localize('com_agents_category_value') ?? 'Value (optional, auto-generated)'}
+                      placeholder={
+                        localize('com_agents_category_value') ?? 'Value (optional, auto-generated)'
+                      }
                       value={form.value}
                       onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
                       className={inputClasses}
@@ -187,7 +204,9 @@ export default function CategoryManager() {
                   )}
                   <input
                     type="text"
-                    placeholder={localize('com_agents_category_description') ?? 'Description (optional)'}
+                    placeholder={
+                      localize('com_agents_category_description') ?? 'Description (optional)'
+                    }
                     value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     className={inputClasses}
@@ -199,7 +218,9 @@ export default function CategoryManager() {
                       className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-50"
                     >
                       <Plus className="h-4 w-4" />
-                      {editingValue ? (localize('com_ui_save') ?? 'Save') : (localize('com_ui_add') ?? 'Add')}
+                      {editingValue
+                        ? (localize('com_ui_save') ?? 'Save')
+                        : (localize('com_ui_add') ?? 'Add')}
                     </button>
                     {editingValue && (
                       <button
