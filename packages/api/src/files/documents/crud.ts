@@ -100,9 +100,51 @@ async function wordDocToText(file: Express.Multer.File): Promise<string> {
    * sub-1MB compressed bomb (~200x ratio) would block the event loop
    * and spike RSS to ~1GB. See SEC review on PR #12934. */
   await assertSafeZipSize(buffer, { name: file.originalname ?? 'docx' });
-  const { extractRawText } = await import('mammoth');
-  const rawText = await extractRawText({ buffer });
-  return rawText.value;
+  const { convertToHtml } = await import('mammoth');
+  let text = '';
+  await convertToHtml(
+    { buffer },
+    {
+      transformDocument: (document: DocxElement) => {
+        text = docxElementToText(document);
+        return document;
+      },
+    },
+  );
+  return text;
+}
+
+type DocxElement = { type: string; value?: string; children?: DocxElement[] };
+
+const toCsvField = (value: string): string =>
+  /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+const docxTableToCsv = (table: DocxElement): string =>
+  (table.children ?? [])
+    .map((row) =>
+      (row.children ?? [])
+        .map((cell) => toCsvField(docxElementToText(cell).trim().replace(/\n+/g, ' ')))
+        .join(','),
+    )
+    .join('\n');
+
+/**
+ * Mirrors mammoth's `extractRawText`, whose raw-text writer emits every table cell as its
+ * own paragraph and loses which row and column a value belongs to. Tables are written as
+ * CSV lines instead, the same shape spreadsheets reach the model in.
+ */
+function docxElementToText(element: DocxElement): string {
+  if (element.type === 'text') {
+    return element.value ?? '';
+  }
+  if (element.type === 'tab') {
+    return '\t';
+  }
+  if (element.type === 'table') {
+    return `${docxTableToCsv(element)}\n\n`;
+  }
+  const tail = element.type === 'paragraph' ? '\n\n' : '';
+  return (element.children ?? []).map(docxElementToText).join('') + tail;
 }
 
 /** Parses Excel sheet, returns text inside. */

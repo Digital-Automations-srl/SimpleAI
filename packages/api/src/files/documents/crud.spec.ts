@@ -180,6 +180,44 @@ describe('Document Parser', () => {
     );
   });
 
+  test('parseDocument() keeps docx table rows and columns as CSV lines', async () => {
+    const cell = (text: string) => `<w:tc><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:tc>`;
+    const row = (...cells: string[]) => `<w:tr>${cells.map(cell).join('')}</w:tr>`;
+    const paragraph = (text: string) => `<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`;
+    const zip = new JSZip();
+    zip.file(
+      '[Content_Types].xml',
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+    );
+    zip.file(
+      '_rels/.rels',
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+    );
+    zip.file(
+      'word/document.xml',
+      `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paragraph('Intro paragraph.')}<w:tbl>${row('Region', 'Product', 'Units')}${row('EU', 'Cable', '12')}${row('US, East', 'Hub &quot;Pro&quot;', '7')}</w:tbl>${paragraph('Closing paragraph.')}</w:body></w:document>`,
+    );
+    const tmpPath = path.join(__dirname, 'table.docx');
+    await fs.promises.writeFile(tmpPath, await zip.generateAsync({ type: 'nodebuffer' }));
+    try {
+      const file = {
+        originalname: 'table.docx',
+        path: tmpPath,
+        mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      } as Express.Multer.File;
+
+      const document = await parseDocument({ file });
+
+      expect(document.text).toBe(
+        'Intro paragraph.\n\n' +
+          'Region,Product,Units\nEU,Cable,12\n"US, East","Hub ""Pro""",7\n\n' +
+          'Closing paragraph.\n\n',
+      );
+    } finally {
+      await fs.promises.unlink(tmpPath);
+    }
+  });
+
   test('parseDocument() throws error for empty document', async () => {
     const file = {
       originalname: 'empty.docx',
