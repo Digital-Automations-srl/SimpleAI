@@ -17,6 +17,7 @@ import { createFileMethods, type FileMethods, type FileOwnerScope } from './file
 import {
   createImprovementReportMethods,
   type ImprovementReportMethods,
+  type CreateImprovementReportData,
 } from './improvementReport';
 import { createTokenMethods, type TokenMethods } from './token';
 import { createRoleMethods, RoleConflictError } from './role';
@@ -527,6 +528,7 @@ export type {
   FileMethods,
   FileOwnerScope,
   ImprovementReportMethods,
+  CreateImprovementReportData,
   MemoryMethods,
   ToolFavoriteMethods,
   AgentCategoryMethods,
