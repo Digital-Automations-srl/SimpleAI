@@ -29,6 +29,7 @@ import {
   useAgentsMap,
   useFileMap,
 } from '~/hooks';
+import { TermsAndConditionsModal, ChangelogModal, shouldShowChangelog } from '~/components/ui';
 import KeyboardShortcutsDialog from '~/components/Nav/KeyboardShortcutsDialog';
 import KeyboardDeleteDialog from '~/components/Nav/KeyboardDeleteDialog';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
@@ -37,7 +38,6 @@ import useKeyboardShortcuts from '~/hooks/useKeyboardShortcuts';
 import useDrawerDismiss from '~/hooks/Nav/useDrawerDismiss';
 import useSidebarToggle from '~/hooks/Nav/useSidebarToggle';
 import useSidebarState from '~/hooks/Nav/useSidebarState';
-import { TermsAndConditionsModal, ChangelogModal, getSeenVersion } from '~/components/ui';
 import useDrawerSwipe from '~/hooks/Nav/useDrawerSwipe';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
@@ -145,8 +145,7 @@ export default function Root() {
       .then((res) => res.json())
       .then((data: ChangelogData) => {
         setChangelogData(data);
-        const seen = getSeenVersion();
-        if (seen !== data.version) {
+        if (shouldShowChangelog(data.version)) {
           setShowChangelog(true);
         }
       })

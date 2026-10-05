@@ -24,6 +24,19 @@ export function markVersionSeen(version: string): void {
   localStorage.setItem(STORAGE_KEY, version);
 }
 
+/**
+ * A first visit has nothing new to announce: the current version is recorded silently, so the
+ * dialog opens only when a release newer than the last one seen ships.
+ */
+export function shouldShowChangelog(version: string): boolean {
+  const seen = getSeenVersion();
+  if (seen == null) {
+    markVersionSeen(version);
+    return false;
+  }
+  return seen !== version;
+}
+
 export default function ChangelogModal({
   open,
   onOpenChange,

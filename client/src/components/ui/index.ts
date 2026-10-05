@@ -7,7 +7,7 @@ export { default as PanelFooter } from './PanelFooter';
 export { default as PanelContent } from './PanelContent';
 export { default as TermsAndConditionsModal } from './TermsAndConditionsModal';
 export { default as ChangelogModal } from './ChangelogModal';
-export { getSeenVersion, markVersionSeen } from './ChangelogModal';
+export { getSeenVersion, markVersionSeen, shouldShowChangelog } from './ChangelogModal';
 export { default as FeedbackModal } from './FeedbackModal';
 export { default as AdminSettingsDialog } from './AdminSettingsDialog';
 export { default as LocalizedDateRangePicker } from './LocalizedDateRangePicker';
