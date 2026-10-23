@@ -1,0 +1,858 @@
+import { a as e } from './rolldown-runtime.B0Z9INg1.js';
+import { at as t, rt as n } from './advanced-inputs.0gHsBjsU.js';
+import { qr as r } from './vendor.DMhDOqx5.js';
+import { h as i, p as a } from './validation.Bd3jvxDI.js';
+import {
+  $p as o,
+  Bg as s,
+  Dp as c,
+  Fs as l,
+  Gt as u,
+  Hp as d,
+  Is as f,
+  J_ as p,
+  Kg as m,
+  Kp as h,
+  S_ as g,
+  Wm as _,
+  Wp as v,
+  Wu as y,
+  Xh as b,
+  Xn as x,
+  Yp as S,
+  Zp as C,
+  ds as w,
+  ep as T,
+  np as E,
+  q_ as D,
+  qp as O,
+  sh as k,
+  vm as A,
+  wm as j,
+} from './hooks.CTs3gcEO.js';
+import { a as M, i as N, n as P, t as F } from './forms.DQMwNapF.js';
+function I(e) {
+  try {
+    JSON.parse(e);
+  } catch {
+    return !1;
+  }
+  return !0;
+}
+function L(e) {
+  try {
+    return JSON.stringify(JSON.parse(e), null, 2);
+  } catch {
+    return e;
+  }
+}
+function R(e) {
+  let t = 0,
+    n = -1,
+    r = !1,
+    i = !1;
+  for (let a = 0; a < e.length; a++) {
+    if (r) {
+      i ? (i = !1) : e[a] === `\\` ? (i = !0) : e[a] === `"` && (r = !1);
+      continue;
+    }
+    if (e[a] === `"` && t > 0) r = !0;
+    else if (e[a] === `{`) (t === 0 && (n = a), t++);
+    else if (e[a] === `}` && t > 0 && (t--, t === 0 && n !== -1)) return e.slice(n, a + 1);
+  }
+  return ``;
+}
+function z(e) {
+  function t(e, t) {
+    return I(t) ? JSON.parse(t)[e] : ``;
+  }
+  function n(t, n, r) {
+    let i = {};
+    (I(r) && (i = JSON.parse(r)), (i[t] = n), e(JSON.stringify(i)));
+  }
+  return { getMultiKey: t, setMultiKey: n };
+}
+var B = (e) =>
+    e
+      ? !!e.userProvide ||
+        !!e.userProvideAccessKeyId ||
+        !!e.userProvideSecretAccessKey ||
+        !!e.userProvideSessionToken ||
+        !!e.userProvideBearerToken
+      : !1,
+  V = ({ endpointsConfig: e, modelSpecs: t, hasAgentAccess: n }) => {
+    let r = Object.keys(e),
+      i = t?.list ?? [];
+    if (i.length === 0) return new Set(r);
+    let a = new Set();
+    for (let e of i) {
+      let t = e.preset?.endpoint;
+      t && a.add(t);
+    }
+    for (let e of t?.addedEndpoints ?? []) a.add(e);
+    if (!n || !a.has(m.agents)) return a;
+    let o = e[m.agents]?.allowedProviders ?? [];
+    if (o.length > 0) {
+      for (let e of o) a.add(e);
+      return a;
+    }
+    for (let e of r) !D(e) && !p(e) && a.add(e);
+    return a;
+  },
+  H = ({ endpointsConfig: e, modelSpecs: t, hasAgentAccess: n }) => {
+    if (!e) return [];
+    let r = V({ endpointsConfig: e, modelSpecs: t, hasAgentAccess: n }),
+      i = [];
+    for (let [t, n] of Object.entries(e)) r.has(t) && B(n) && i.push(t);
+    return i;
+  },
+  U = e(t(), 1);
+function W(e, t, n) {
+  let r = new Date(t).toLocaleString(void 0, { hour12: n }),
+    i = e(`com_endpoint_config_key_encryption`, { 0: r });
+  return i.includes(r) ? i : `${i} ${r}`;
+}
+var G = n(),
+  K = (0, U.forwardRef)((e, t) => {
+    let {
+        id: n,
+        value: r,
+        label: i,
+        secret: a = !1,
+        subLabel: o,
+        onChange: s,
+        labelClassName: c = ``,
+        inputClassName: l = ``,
+      } = e,
+      u = w();
+    return (0, G.jsxs)(G.Fragment, {
+      children: [
+        (0, G.jsxs)(`div`, {
+          className: y(`mt-4 flex flex-row`, c),
+          children: [
+            (0, G.jsx)(j, { htmlFor: n, className: `text-left text-sm font-medium`, children: i }),
+            o &&
+              (0, G.jsx)(j, {
+                className: `mx-1 text-right text-sm text-text-secondary`,
+                children: o,
+              }),
+            (0, G.jsx)(`br`, {}),
+          ],
+        }),
+        (0, G.jsx)(`div`, { className: `h-1` }),
+        a
+          ? (0, G.jsx)(_, {
+              id: n,
+              'data-testid': `input-${n}`,
+              value: r ?? ``,
+              onChange: s,
+              ref: t,
+              autoComplete: `new-password`,
+              'data-lpignore': `true`,
+              'data-1p-ignore': `true`,
+              controlsOnHover: !0,
+              placeholder: `${u(`com_endpoint_config_value`)} ${i}`,
+              className: y(`flex h-10 max-h-10 w-full resize-none px-3 py-2`, l),
+            })
+          : (0, G.jsx)(A, {
+              id: n,
+              'data-testid': `input-${n}`,
+              value: r ?? ``,
+              onChange: s,
+              ref: t,
+              placeholder: `${u(`com_endpoint_config_value`)} ${i}`,
+              className: y(`flex h-10 max-h-10 w-full resize-none px-3 py-2`, l),
+            }),
+      ],
+    });
+  }),
+  q = ({ endpoint: e, userProvideURL: t }) => {
+    let { control: n } = M();
+    return (0, G.jsxs)(`form`, {
+      className: `flex-wrap`,
+      children: [
+        (0, G.jsx)(F, {
+          name: `apiKey`,
+          control: n,
+          render: ({ field: t }) =>
+            (0, G.jsx)(K, {
+              id: `apiKey`,
+              ...t,
+              label: `${e} API Key`,
+              labelClassName: `mb-1`,
+              inputClassName: `mb-2`,
+              secret: !0,
+            }),
+        }),
+        t &&
+          (0, G.jsx)(F, {
+            name: `baseURL`,
+            control: n,
+            render: ({ field: t }) =>
+              (0, G.jsx)(K, { id: `baseURL`, ...t, label: `${e} API URL`, labelClassName: `mb-1` }),
+          }),
+      ],
+    });
+  },
+  J = ({
+    userProvideAccessKeyId: e,
+    userProvideSecretAccessKey: t,
+    userProvideSessionToken: n,
+    userProvideBearerToken: r,
+  }) => {
+    let { control: i } = M(),
+      a = w();
+    return (0, G.jsx)(`form`, {
+      className: `flex-wrap`,
+      children: (() => {
+        let o = [];
+        return (
+          e &&
+            o.push(
+              (0, G.jsx)(
+                F,
+                {
+                  name: `bedrockAccessKeyId`,
+                  control: i,
+                  render: ({ field: e }) =>
+                    (0, G.jsx)(K, {
+                      id: `bedrockAccessKeyId`,
+                      ...e,
+                      label: a(`com_endpoint_config_bedrock_access_key_id`),
+                      labelClassName: `mb-1`,
+                      inputClassName: `mb-2`,
+                    }),
+                },
+                `bedrockAccessKeyId`,
+              ),
+            ),
+          t &&
+            (o.length > 0 && o.push((0, G.jsx)(`div`, { className: `mt-3` }, `spacer1`)),
+            o.push(
+              (0, G.jsx)(
+                F,
+                {
+                  name: `bedrockSecretAccessKey`,
+                  control: i,
+                  render: ({ field: e }) =>
+                    (0, G.jsx)(K, {
+                      id: `bedrockSecretAccessKey`,
+                      ...e,
+                      label: a(`com_endpoint_config_bedrock_secret_access_key`),
+                      labelClassName: `mb-1`,
+                      inputClassName: `mb-2`,
+                    }),
+                },
+                `bedrockSecretAccessKey`,
+              ),
+            )),
+          n &&
+            (o.length > 0 && o.push((0, G.jsx)(`div`, { className: `mt-3` }, `spacer2`)),
+            o.push(
+              (0, G.jsx)(
+                F,
+                {
+                  name: `bedrockSessionToken`,
+                  control: i,
+                  render: ({ field: e }) =>
+                    (0, G.jsx)(K, {
+                      id: `bedrockSessionToken`,
+                      ...e,
+                      label: a(`com_endpoint_config_bedrock_session_token`),
+                      labelClassName: `mb-1`,
+                      inputClassName: `mb-2`,
+                    }),
+                },
+                `bedrockSessionToken`,
+              ),
+            )),
+          r &&
+            (o.length > 0 && o.push((0, G.jsx)(`div`, { className: `mt-3` }, `spacer3`)),
+            o.push(
+              (0, G.jsx)(
+                F,
+                {
+                  name: `bedrockBearerToken`,
+                  control: i,
+                  render: ({ field: e }) =>
+                    (0, G.jsx)(K, {
+                      id: `bedrockBearerToken`,
+                      ...e,
+                      label: a(`com_endpoint_config_bedrock_bearer_token`),
+                      labelClassName: `mb-1`,
+                      inputClassName: `mb-2`,
+                    }),
+                },
+                `bedrockBearerToken`,
+              ),
+            )),
+          (0, G.jsx)(G.Fragment, { children: o })
+        );
+      })(),
+    });
+  },
+  Y = ({
+    onFileSelected: e,
+    className: t = ``,
+    containerClassName: n = ``,
+    successText: i = null,
+    invalidText: a = null,
+    validator: o = null,
+    text: s = null,
+    id: l = `1`,
+  }) => {
+    let [u, d] = (0, U.useState)(`text-text-secondary`),
+      [f, p] = (0, U.useState)(null),
+      m = w(),
+      h = (t) => {
+        let n = t.target.files?.[0];
+        if (!n) return;
+        let r = new FileReader();
+        ((r.onload = (t) => {
+          let n = JSON.parse(t.target?.result);
+          if (o && !o(n)) {
+            (p(`invalid`), d(`text-text-destructive`));
+            return;
+          }
+          (o && (p(`success`), d(`text-status-success`)), e(n));
+        }),
+          r.readAsText(n));
+      },
+      g;
+    return (
+      (g = f
+        ? f === `success`
+          ? (i ?? m(`com_ui_upload_success`))
+          : (a ?? m(`com_ui_upload_invalid`))
+        : (s ?? m(`com_ui_import`))),
+      (0, G.jsxs)(G.Fragment, {
+        children: [
+          (0, G.jsxs)(c, {
+            type: `button`,
+            variant: `ghost`,
+            size: `sm`,
+            onClick: () => {
+              let e = document.getElementById(`file-upload-${l}`);
+              e && e.click();
+            },
+            className: y(
+              `mr-1 flex h-auto cursor-pointer items-center rounded bg-transparent px-2 py-1 text-xs font-normal text-text-secondary transition-colors hover:bg-surface-hover hover:text-status-success focus:ring-text-primary`,
+              u,
+              n,
+            ),
+            'aria-label': g,
+            children: [
+              (0, G.jsx)(r, {
+                className: `mr-1 flex w-[22px] items-center stroke-1`,
+                'aria-hidden': `true`,
+              }),
+              (0, G.jsx)(`span`, { className: `flex text-xs`, children: g }),
+            ],
+          }),
+          (0, G.jsx)(`input`, {
+            id: `file-upload-${l}`,
+            value: ``,
+            type: `file`,
+            className: y(`hidden`, t),
+            accept: `.json`,
+            onChange: h,
+            tabIndex: -1,
+          }),
+        ],
+      })
+    );
+  },
+  ee = a({ client_email: i().email().min(3), project_id: i().min(3), private_key: i().min(601) }),
+  te = (e) => ee.safeParse(e).success,
+  ne = ({ userKey: e, setUserKey: t }) => {
+    let n = w(),
+      { getMultiKey: r, setMultiKey: i } = z(t);
+    return (0, G.jsxs)(G.Fragment, {
+      children: [
+        (0, G.jsxs)(`div`, {
+          className: `flex flex-row`,
+          children: [
+            (0, G.jsx)(j, {
+              htmlFor: s.GOOGLE_SERVICE_KEY,
+              className: `text-left text-sm font-medium`,
+              children: n(`com_endpoint_config_google_service_key`),
+            }),
+            (0, G.jsx)(j, {
+              className: `mx-1 text-right text-sm text-text-secondary`,
+              children: n(`com_endpoint_config_google_cloud_platform`),
+            }),
+            (0, G.jsx)(`br`, {}),
+          ],
+        }),
+        (0, G.jsx)(Y, {
+          id: s.GOOGLE_SERVICE_KEY,
+          className: `w-full`,
+          containerClassName: `bg-surface-secondary h-10 max-h-10 w-full resize-none py-2`,
+          text: n(`com_endpoint_config_key_import_json_key`),
+          successText: n(`com_endpoint_config_key_import_json_key_success`),
+          invalidText: n(`com_endpoint_config_key_import_json_key_invalid`),
+          validator: te,
+          onFileSelected: (t) => {
+            i(s.GOOGLE_SERVICE_KEY, JSON.stringify(t), e);
+          },
+        }),
+        (0, G.jsx)(K, {
+          id: s.GOOGLE_API_KEY,
+          value: r(s.GOOGLE_API_KEY, e) ?? ``,
+          onChange: (t) => i(s.GOOGLE_API_KEY, t.target.value ?? ``, e),
+          label: n(`com_endpoint_config_google_api_key`),
+          subLabel: n(`com_endpoint_config_google_gemini_api`),
+          secret: !0,
+        }),
+      ],
+    });
+  },
+  X = ({ endpoint: e, userProvideURL: t }) => {
+    let { control: n } = M(),
+      r = e === m.azureOpenAI;
+    return (0, G.jsxs)(`form`, {
+      className: `flex-wrap`,
+      children: [
+        !r &&
+          (0, G.jsx)(F, {
+            name: `apiKey`,
+            control: n,
+            render: ({ field: e }) =>
+              (0, G.jsx)(K, {
+                id: `apiKey`,
+                ...e,
+                label: `${r ? `Azure q` : ``}OpenAI API Key`,
+                labelClassName: `mb-1`,
+                inputClassName: `mb-2`,
+                secret: !0,
+              }),
+          }),
+        r &&
+          (0, G.jsxs)(G.Fragment, {
+            children: [
+              (0, G.jsx)(F, {
+                name: `azureOpenAIApiKey`,
+                control: n,
+                render: ({ field: e }) =>
+                  (0, G.jsx)(K, {
+                    id: `azureOpenAIApiKey`,
+                    ...e,
+                    label: `Azure OpenAI API Key`,
+                    labelClassName: `mb-1`,
+                    secret: !0,
+                  }),
+              }),
+              (0, G.jsx)(`div`, { className: `mt-3` }),
+              (0, G.jsx)(F, {
+                name: `azureOpenAIApiInstanceName`,
+                control: n,
+                render: ({ field: e }) =>
+                  (0, G.jsx)(K, {
+                    id: `azureOpenAIApiInstanceName`,
+                    ...e,
+                    label: `Azure OpenAI Instance Name`,
+                    labelClassName: `mb-1`,
+                  }),
+              }),
+              (0, G.jsx)(`div`, { className: `mt-3` }),
+              (0, G.jsx)(F, {
+                name: `azureOpenAIApiDeploymentName`,
+                control: n,
+                render: ({ field: e }) =>
+                  (0, G.jsx)(K, {
+                    id: `azureOpenAIApiDeploymentName`,
+                    ...e,
+                    label: `Azure OpenAI Deployment Name`,
+                    labelClassName: `mb-1`,
+                  }),
+              }),
+              (0, G.jsx)(`div`, { className: `mt-3` }),
+              (0, G.jsx)(F, {
+                name: `azureOpenAIApiVersion`,
+                control: n,
+                render: ({ field: e }) =>
+                  (0, G.jsx)(K, {
+                    id: `azureOpenAIApiVersion`,
+                    ...e,
+                    label: `Azure OpenAI API Version`,
+                    labelClassName: `mb-1`,
+                  }),
+              }),
+            ],
+          }),
+        t &&
+          (0, G.jsx)(`div`, {
+            className: `mt-3`,
+            children: (0, G.jsx)(F, {
+              name: `baseURL`,
+              control: n,
+              render: ({ field: e }) =>
+                (0, G.jsx)(K, {
+                  id: `baseURL`,
+                  ...e,
+                  label: `API Base URL`,
+                  subLabel: `(Optional)`,
+                  labelClassName: `mb-1`,
+                }),
+            }),
+          }),
+      ],
+    });
+  },
+  re = ({ userKey: e, setUserKey: t, endpoint: n }) => {
+    let r = w();
+    return (0, G.jsx)(K, {
+      id: n,
+      value: e ?? ``,
+      onChange: (e) => t(e.target.value ?? ``),
+      label: r(`com_endpoint_config_key_name`),
+      secret: !0,
+    });
+  };
+function ie({ endpoint: e }) {
+  let t = w();
+  return (
+    {
+      [m.google]: (0, G.jsxs)(G.Fragment, {
+        children: [
+          (0, G.jsxs)(`small`, {
+            className: `mt-4 break-all text-text-secondary`,
+            children: [
+              t(`com_endpoint_config_google_service_key`),
+              `: `,
+              t(`com_endpoint_config_key_google_need_to`),
+              ` `,
+              (0, G.jsx)(`a`, {
+                target: `_blank`,
+                href: `https://console.cloud.google.com/vertex-ai`,
+                rel: `noreferrer`,
+                className: `text-link underline`,
+                children: t(`com_endpoint_config_key_google_vertex_ai`),
+              }),
+              ` `,
+              t(`com_endpoint_config_key_google_vertex_api`),
+              ` `,
+              (0, G.jsx)(`a`, {
+                target: `_blank`,
+                href: `https://console.cloud.google.com/projectselector/iam-admin/serviceaccounts/create?walkthrough_id=iam--create-service-account#step_index=1`,
+                rel: `noreferrer`,
+                className: `text-link underline`,
+                children: t(`com_endpoint_config_key_google_service_account`),
+              }),
+              `. `,
+              t(`com_endpoint_config_key_google_vertex_api_role`),
+            ],
+          }),
+          (0, G.jsxs)(`small`, {
+            className: `break-all text-text-secondary`,
+            children: [
+              t(`com_endpoint_config_google_api_key`),
+              `: `,
+              t(`com_endpoint_config_google_api_info`),
+              ` `,
+              (0, G.jsx)(`a`, {
+                target: `_blank`,
+                href: `https://makersuite.google.com/app/apikey`,
+                rel: `noreferrer`,
+                className: `text-link underline`,
+                children: t(`com_endpoint_config_click_here`),
+              }),
+              ` `,
+            ],
+          }),
+        ],
+      }),
+    }[e] || null
+  );
+}
+var ae = (0, U.memo)(ie),
+  Z = {
+    [m.google]: ne,
+    [m.openAI]: X,
+    [m.custom]: q,
+    [m.azureOpenAI]: X,
+    [m.assistants]: X,
+    [m.azureAssistants]: X,
+    [m.bedrock]: J,
+    default: re,
+  },
+  Q = new Set([m.openAI, m.custom, m.azureOpenAI, m.assistants, m.azureAssistants, m.bedrock]),
+  $ = {
+    THIRTY_MINUTES: { label: `in 30 minutes`, value: 18e5 },
+    TWO_HOURS: { label: `in 2 hours`, value: 72e5 },
+    TWELVE_HOURS: { label: `in 12 hours`, value: 432e5 },
+    ONE_DAY: { label: `in 1 day`, value: 864e5 },
+    ONE_WEEK: { label: `in 7 days`, value: 6048e5 },
+    ONE_MONTH: { label: `in 30 days`, value: 2592e6 },
+    NEVER: { label: `never`, value: 0 },
+  },
+  oe = ({ endpoint: e, disabled: t, setDialogOpen: n }) => {
+    let r = w(),
+      [i, a] = (0, U.useState)(!1),
+      { showToast: o } = b(),
+      s = f(e),
+      u = l(),
+      p = () => {
+        (o({ message: r(`com_ui_revoke_key_success`), status: E.SUCCESS }), n && n(!1));
+      },
+      m = () => {
+        o({ message: r(`com_ui_revoke_key_error`), status: E.ERROR });
+      },
+      g = () => {
+        s.mutate({}, { onSuccess: p, onError: m });
+      },
+      _ = s.isLoading || u.isLoading;
+    return (0, G.jsx)(`div`, {
+      className: `flex items-center justify-between`,
+      children: (0, G.jsxs)(d, {
+        open: i,
+        onOpenChange: a,
+        children: [
+          (0, G.jsx)(C, {
+            asChild: !0,
+            children: (0, G.jsx)(c, {
+              variant: `destructive`,
+              className: `flex items-center justify-center rounded-lg transition-colors duration-200`,
+              onClick: () => a(!0),
+              disabled: t,
+              children: r(`com_ui_revoke`),
+            }),
+          }),
+          (0, G.jsxs)(v, {
+            className: `max-w-[450px]`,
+            children: [
+              (0, G.jsx)(O, {
+                children: (0, G.jsx)(S, { children: r(`com_ui_revoke_key_endpoint`, { 0: e }) }),
+              }),
+              (0, G.jsx)(`div`, {
+                className: `py-4`,
+                children: (0, G.jsx)(j, {
+                  className: `text-left text-sm font-medium`,
+                  children: r(`com_ui_revoke_key_confirm`),
+                }),
+              }),
+              (0, G.jsxs)(h, {
+                children: [
+                  (0, G.jsx)(c, {
+                    variant: `outline`,
+                    onClick: () => a(!1),
+                    children: r(`com_ui_cancel`),
+                  }),
+                  (0, G.jsx)(c, {
+                    variant: `destructive`,
+                    onClick: g,
+                    disabled: _,
+                    className: `bg-surface-destructive text-text-on-status transition-all duration-200 hover:bg-surface-destructive-hover`,
+                    children: _ ? (0, G.jsx)(k, {}) : r(`com_ui_revoke`),
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  se = ({
+    open: e,
+    onOpenChange: t,
+    endpoint: n,
+    endpointType: r,
+    userProvideURL: i,
+    userProvideAccessKeyId: a,
+    userProvideSecretAccessKey: s,
+    userProvideSessionToken: l,
+    userProvideBearerToken: f,
+  }) => {
+    let _ = N({
+        defaultValues: {
+          apiKey: ``,
+          baseURL: ``,
+          azureOpenAIApiKey: ``,
+          azureOpenAIApiInstanceName: ``,
+          azureOpenAIApiDeploymentName: ``,
+          azureOpenAIApiVersion: ``,
+          bedrockAccessKeyId: ``,
+          bedrockSecretAccessKey: ``,
+          bedrockSessionToken: ``,
+          bedrockBearerToken: ``,
+        },
+      }),
+      [y, C] = (0, U.useState)(``),
+      [D, k] = (0, U.useState)($.TWELVE_HOURS.label),
+      { getExpiry: A, saveUserKey: j } = u(n),
+      { showToast: M } = b(),
+      F = w(),
+      I = Object.values($),
+      L = r ?? n,
+      R = (e) => {
+        k(e);
+      },
+      z = () => {
+        let e = I.find((e) => e.label === D),
+          o;
+        o = e?.value === 0 ? null : Date.now() + (e ? e.value : 0);
+        let c = (e) => {
+          try {
+            (j(e, o), M({ message: F(`com_ui_save_key_success`), status: E.SUCCESS }), t(!1));
+          } catch (e) {
+            (T.error(`Error saving user key:`, e),
+              M({ message: F(`com_ui_save_key_error`), status: E.ERROR }));
+          }
+        };
+        if (Q.has(n) || Q.has(r ?? ``)) {
+          _.handleSubmit((e) => {
+            let n = L === m.azureOpenAI,
+              r = L === m.bedrock,
+              o = n || L === m.openAI || p(L);
+            n && (e.apiKey = `n/a`);
+            let u = Object.keys(e).filter((t) =>
+              (!n && t.startsWith(`azure`)) ||
+              (!r && t.startsWith(`bedrock`)) ||
+              (o && t === `baseURL`) ||
+              (t === `baseURL` && !(i ?? !1))
+                ? !1
+                : e[t] === ``,
+            );
+            if (r) {
+              let n = f ? e.bedrockBearerToken?.trim() : ``,
+                r = a ? e.bedrockAccessKeyId?.trim() : ``,
+                i = s ? e.bedrockSecretAccessKey?.trim() : ``,
+                o = l ? e.bedrockSessionToken?.trim() : ``,
+                c = F(`com_endpoint_config_bedrock_access_key_id`),
+                u = F(`com_endpoint_config_bedrock_secret_access_key`),
+                d = F(`com_endpoint_config_bedrock_session_token`),
+                p = F(`com_endpoint_config_bedrock_bearer_token`),
+                m = !!n,
+                h = !!a || !!s || !!l,
+                g = [
+                  !m && !h && f ? p : ``,
+                  !m && a && !r ? c : ``,
+                  !m && s && !i ? u : ``,
+                  !m && l && !o ? d : ``,
+                ].filter(Boolean);
+              if (!m && g.length > 0) {
+                (M({
+                  message: `${F(`com_endpoint_config_required_fields`)} ${g.join(`, `)}`,
+                  status: E.ERROR,
+                }),
+                  t(!0));
+                return;
+              }
+              if (!m && !h) {
+                (M({
+                  message: F(`com_endpoint_config_bedrock_credentials_required`),
+                  status: E.ERROR,
+                }),
+                  t(!0));
+                return;
+              }
+            } else if (u.length > 0) {
+              (M({
+                message: `${F(`com_endpoint_config_required_fields`)} ${u.join(`, `)}`,
+                status: E.ERROR,
+              }),
+                t(!0));
+              return;
+            }
+            let {
+                apiKey: d,
+                baseURL: h,
+                bedrockAccessKeyId: g,
+                bedrockSecretAccessKey: v,
+                bedrockSessionToken: y,
+                bedrockBearerToken: b,
+                ...x
+              } = e,
+              S = { apiKey: d, baseURL: h };
+            if (n)
+              S.apiKey = JSON.stringify({
+                azureOpenAIApiKey: x.azureOpenAIApiKey,
+                azureOpenAIApiInstanceName: x.azureOpenAIApiInstanceName,
+                azureOpenAIApiDeploymentName: x.azureOpenAIApiDeploymentName,
+                azureOpenAIApiVersion: x.azureOpenAIApiVersion,
+              });
+            else if (r) {
+              let e = f ? b.trim() : ``,
+                t = a ? g.trim() : ``,
+                n = s ? v.trim() : ``,
+                r = l ? y.trim() : ``;
+              S.apiKey = JSON.stringify(
+                e
+                  ? { bearerToken: e }
+                  : {
+                      ...(t && { accessKeyId: t }),
+                      ...(n && { secretAccessKey: n }),
+                      ...(r && { sessionToken: r }),
+                    },
+              );
+            }
+            (c(JSON.stringify(S)), _.reset());
+          })();
+          return;
+        }
+        if (!y.trim()) {
+          M({ message: F(`com_ui_key_required`), status: E.ERROR });
+          return;
+        }
+        (c(y), C(``));
+      },
+      B = Z[L] ?? Z.default,
+      V = A(),
+      H = x(),
+      K = null;
+    return (
+      V === `never`
+        ? (K = F(`com_endpoint_config_key_never_expires`))
+        : V !== void 0 && (K = W(F, V, H)),
+      (0, G.jsx)(d, {
+        open: e,
+        onOpenChange: t,
+        children: (0, G.jsxs)(v, {
+          className: `w-11/12 max-w-2xl`,
+          children: [
+            (0, G.jsx)(O, {
+              children: (0, G.jsx)(S, {
+                children: `${F(`com_endpoint_config_key_for`)} ${g[n] ?? n}`,
+              }),
+            }),
+            (0, G.jsxs)(`div`, {
+              className: `grid w-full items-center gap-2 py-2`,
+              children: [
+                K && (0, G.jsx)(`small`, { className: `text-text-destructive`, children: K }),
+                (0, G.jsx)(o, {
+                  label: `${F(`com_endpoint_config_new_key_expiration`)}: `,
+                  value: D,
+                  onChange: R,
+                  options: I.map((e) => e.label),
+                  sizeClasses: `w-[185px]`,
+                  portal: !1,
+                }),
+                (0, G.jsx)(P, {
+                  ..._,
+                  children: (0, G.jsx)(B, {
+                    userKey: y,
+                    endpoint: n,
+                    setUserKey: C,
+                    userProvideURL: i,
+                    userProvideAccessKeyId: a,
+                    userProvideSecretAccessKey: s,
+                    userProvideSessionToken: l,
+                    userProvideBearerToken: f,
+                  }),
+                }),
+                (0, G.jsx)(ae, { endpoint: n }),
+              ],
+            }),
+            (0, G.jsxs)(h, {
+              children: [
+                (0, G.jsx)(oe, { endpoint: n, disabled: !(V ?? ``), setDialogOpen: t }),
+                (0, G.jsx)(c, { variant: `submit`, onClick: z, children: F(`com_ui_submit`) }),
+              ],
+            }),
+          ],
+        }),
+      })
+    );
+  };
+export { R as a, B as i, W as n, L as o, H as r, I as s, se as t };
