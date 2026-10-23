@@ -978,9 +978,10 @@ describe('bedrockInputParser', () => {
       };
       const result = bedrockInputParser.parse(input) as Record<string, unknown>;
       const additionalFields = result.additionalModelRequestFields as Record<string, unknown>;
-      expect(additionalFields.thinking).toBe(true);
-      expect(additionalFields.thinkingBudget).toBe(2000);
-      expect(additionalFields.anthropic_beta).toEqual(BEDROCK_CLAUDE_4_BETAS);
+      /** SimpleAI: Haiku 5.5+ takes adaptive thinking only; a budget is a 400. */
+      expect(additionalFields.thinking).toMatchObject({ type: 'adaptive' });
+      expect(additionalFields.thinkingBudget).toBeUndefined();
+      expect(additionalFields.anthropic_beta).toEqual(['thinking-binding-controls-2026-08-01']);
     });
 
     test('should match anthropic.claude-4-sonnet model without context beta header', () => {
@@ -2073,5 +2074,30 @@ describe('bedrockInputParser', () => {
       expect(result.promptCache).toBeUndefined();
       expect(result.promptCacheTtl).toBeUndefined();
     });
+  });
+});
+
+describe('Claude Haiku 5.5 thinking contract', () => {
+  test.each(['claude-haiku-5-5', 'claude-haiku-5.5', 'claude-haiku-6'])(
+    '%s takes adaptive thinking, never a budget',
+    (model) => {
+      expect(supportsAdaptiveThinking(model)).toBe(true);
+      expect(omitsThinkingByDefault(model)).toBe(true);
+      expect(omitsSamplingParameters(model)).toBe(true);
+      expect(bindsThinkingBlocks(model)).toBe(true);
+    },
+  );
+
+  test('turning thinking off sends an explicit disabled config, capped at high effort', () => {
+    expect(requiresExplicitThinkingDisabled('claude-haiku-5-5')).toBe(true);
+    expect(resolveThinkingOffConfig('claude-haiku-5-5')).toEqual({ type: 'disabled' });
+    expect(capsEffortWhenThinkingDisabled('claude-haiku-5-5')).toBe(true);
+    expect(hasAlwaysOnThinking('claude-haiku-5-5')).toBe(false);
+  });
+
+  test('Haiku 4.5 keeps the budget-based contract', () => {
+    expect(supportsAdaptiveThinking('claude-haiku-4-5')).toBe(false);
+    expect(requiresExplicitThinkingDisabled('claude-haiku-4-5')).toBe(false);
+    expect(omitsSamplingParameters('claude-haiku-4-5')).toBe(false);
   });
 });
