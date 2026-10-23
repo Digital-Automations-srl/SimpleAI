@@ -204,6 +204,12 @@ test.describe('SimpleAI automatic model', () => {
     await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
     await expect(messagesView(page).getByText('Mock Provider B').first()).toBeVisible();
 
+    /** Follow-up turns must leave untouched tools unset, or the router can never switch them on. */
+    const followUp = await sendMessageAndWaitForCompletion(page, replyPrompt(`${label}-2`));
+    const { ephemeralAgent } = followUp.request().postDataJSON();
+    expect(ephemeralAgent?.execute_code).toBeUndefined();
+    expect(ephemeralAgent?.web_search).toBeUndefined();
+
     await page.reload();
     await expect(autoToggle).toBeChecked();
     await expect(selector).toContainText('E2E Automatico');

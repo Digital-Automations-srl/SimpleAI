@@ -96,12 +96,14 @@ export function useApplyAgentTemplate() {
         return;
       }
 
+      /** An automatic spec's router may switch these on; only a user's explicit `false` stops it. */
+      const unsetTool = modelSpec.autoRouter === true ? undefined : false;
       const mergedAgent = {
         ...ephemeralAgent,
         mcp: [...(ephemeralAgent?.mcp ?? []), ...(modelSpec.mcpServers ?? [])],
-        web_search: ephemeralAgent?.web_search ?? modelSpec.webSearch ?? false,
-        file_search: ephemeralAgent?.file_search ?? modelSpec.fileSearch ?? false,
-        execute_code: ephemeralAgent?.execute_code ?? modelSpec.executeCode ?? false,
+        web_search: ephemeralAgent?.web_search ?? modelSpec.webSearch ?? unsetTool,
+        file_search: ephemeralAgent?.file_search ?? modelSpec.fileSearch ?? unsetTool,
+        execute_code: ephemeralAgent?.execute_code ?? modelSpec.executeCode ?? unsetTool,
         artifacts:
           ephemeralAgent?.artifacts ??
           (modelSpec.artifacts === true ? 'default' : modelSpec.artifacts || ''),

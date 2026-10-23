@@ -3,8 +3,8 @@ import { RecoilRoot, useRecoilValue } from 'recoil';
 import { renderHook, act } from '@testing-library/react';
 import { Constants, EModelEndpoint } from 'librechat-data-provider';
 import type { TEphemeralAgent, TStartupConfig, TModelSpec } from 'librechat-data-provider';
+import { useApplyAgentTemplate, useApplyModelSpecEffects } from '../useApplyModelSpecAgents';
 import { ephemeralAgentByConvoId, useUpdateEphemeralAgent } from '~/store/agents';
-import { useApplyModelSpecEffects } from '../useApplyModelSpecAgents';
 
 const NEW_CONVO = Constants.NEW_CONVO as string;
 
@@ -143,5 +143,48 @@ describe('useApplyModelSpecEffects', () => {
     });
 
     expect(result.current.ephemeralAgent).toEqual(agent);
+  });
+});
+
+describe('useApplyAgentTemplate', () => {
+  const useTemplateHarness = (conversationId: string) => {
+    const applyAgentTemplate = useApplyAgentTemplate();
+    const ephemeralAgent = useRecoilValue(ephemeralAgentByConvoId(conversationId));
+    return { applyAgentTemplate, ephemeralAgent };
+  };
+
+  it('keeps untouched tools unset when a new chat on an automatic spec gets its id', () => {
+    const autoSpec = { ...createModelSpec('auto'), autoRouter: true };
+    const { result } = renderHook(() => useTemplateHarness('convo-auto'), { wrapper: Wrapper });
+
+    act(() => {
+      result.current.applyAgentTemplate({
+        targetId: 'convo-auto',
+        sourceId: NEW_CONVO,
+        ephemeralAgent: { mcp: [], execute_code: false },
+        specName: 'auto',
+        startupConfig: createStartupConfig([autoSpec]),
+      });
+    });
+
+    expect(result.current.ephemeralAgent?.web_search).toBeUndefined();
+    expect(result.current.ephemeralAgent?.file_search).toBeUndefined();
+    expect(result.current.ephemeralAgent?.execute_code).toBe(false);
+  });
+
+  it('still defaults tools to off for ordinary specs', () => {
+    const { result } = renderHook(() => useTemplateHarness('convo-plain'), { wrapper: Wrapper });
+
+    act(() => {
+      result.current.applyAgentTemplate({
+        targetId: 'convo-plain',
+        sourceId: NEW_CONVO,
+        ephemeralAgent: { mcp: [] },
+        specName: 'test-spec',
+        startupConfig: specsConfig(),
+      });
+    });
+
+    expect(result.current.ephemeralAgent?.web_search).toBe(false);
   });
 });
