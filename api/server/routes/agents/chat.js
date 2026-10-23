@@ -9,6 +9,7 @@ const {
   applyResumeModelParameters,
   GenerationJobManager,
   getSafeErrorMetadata,
+  createModelRouter,
 } = require('@librechat/api');
 const { PermissionTypes, Permissions, PermissionBits } = require('librechat-data-provider');
 const {
@@ -23,7 +24,7 @@ const guardSubagentThreadTurn = require('~/server/middleware/validate/subagentTh
 const AgentController = require('~/server/controllers/agents/request');
 const ResumeController = require('~/server/controllers/agents/resume');
 const addTitle = require('~/server/services/Endpoints/agents/title');
-const { getFiles, getRoleByName } = require('~/models');
+const { getFiles, getRoleByName, getMessages, createRouterDecision } = require('~/models');
 
 const router = express.Router();
 
@@ -84,6 +85,13 @@ router.use(checkAgentAccess);
 router.use(checkAgentResourceAccess);
 router.use(validateConvoAccess);
 router.use(guardSubagentThreadTurn);
+router.use(
+  createModelRouter({
+    getMessages,
+    createRouterDecision,
+    apiKey: process.env.TYPESAFE_API_KEY,
+  }),
+);
 router.use(buildEndpointOption);
 
 const controller = async (req, res, next) => {

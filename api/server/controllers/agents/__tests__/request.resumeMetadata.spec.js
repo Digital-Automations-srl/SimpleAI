@@ -294,6 +294,7 @@ jest.mock('@librechat/api', () => ({
   getSafeErrorMetadata: jest.requireActual('@librechat/api').getSafeErrorMetadata,
   getSafeErrorText: jest.requireActual('@librechat/api').getSafeErrorText,
   resolveFailedTurnContent: jest.requireActual('@librechat/api').resolveFailedTurnContent,
+  withRouterConversationFields: jest.requireActual('@librechat/api').withRouterConversationFields,
   getFailedTurnTraceFields: (...args) => mockGetFailedTurnTraceFields(...args),
   GenerationJobManager: mockGenerationJobManager,
   getReferencedQuotes: jest.fn((quotes) => {

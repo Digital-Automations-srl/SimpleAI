@@ -2,6 +2,7 @@ import { logger } from '@librechat/data-schemas';
 import { excludedKeys, isAgentsEndpoint, isEphemeralAgentId } from 'librechat-data-provider';
 import type { AppConfig, ConversationMethods, IConversation } from '@librechat/data-schemas';
 import type { TConversation } from 'librechat-data-provider';
+import type { RouterConversationFields } from '~/modelRouter/apply';
 
 type SaveConvo = ConversationMethods['saveConvo'];
 type SaveConvoOptions = NonNullable<Parameters<SaveConvo>[2]>;
@@ -23,6 +24,8 @@ export interface TurnConversationRequest {
   _agentEventBindingRetention?: { isTemporary?: boolean; expiredAt?: Date };
   /** Set for subagent threads, whose rows only their parent run may create. */
   _agentEventBindingParentConversationId?: string;
+  /** Set when the automatic spec routed this turn to another spec. */
+  modelRouter?: { conversation: RouterConversationFields };
 }
 
 /** The conversation fields a turn writes, shared by its seed and its message saves. */
@@ -135,6 +138,30 @@ async function loadExistingConversation(
   return deps.getConvo(write.ctx.userId, write.conversationId);
 }
 
+type ConversationFields = Partial<Omit<TConversation, 'endpoint' | 'endpointType'>> & {
+  conversationId: string;
+  endpoint?: string | null;
+  endpointType?: string | null;
+};
+
+/** A routed turn still saves the automatic spec, so the next message is routed again. */
+export function withRouterConversationFields<T extends ConversationFields>(
+  req: TurnConversationRequest | undefined,
+  fields: T,
+): T {
+  const routed = req?.modelRouter?.conversation;
+  if (routed == null) {
+    return fields;
+  }
+  return {
+    ...fields,
+    spec: routed.spec,
+    endpoint: routed.endpoint ?? fields.endpoint,
+    endpointType: routed.endpointType ?? null,
+    model: routed.model ?? fields.model,
+  };
+}
+
 async function writeConversation(
   deps: ConversationStore,
   write: TurnConversationWrite,
@@ -145,12 +172,12 @@ async function writeConversation(
   const agentOwned = isAgentOwned(write);
   const conversation = await deps.saveConvo(
     ctx,
-    {
+    withRouterConversationFields(req, {
       endpoint,
       endpointType,
       ...endpointOptions,
       conversationId: endpointOptions.conversationId ?? conversationId,
-    },
+    }),
     {
       context: write.context,
       unsetFields: existing != null ? getUnsetFields(existing, endpointOptions, agentOwned) : {},

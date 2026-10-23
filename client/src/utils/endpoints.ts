@@ -346,11 +346,13 @@ export function applyModelSpecEphemeralAgent({
     return;
   }
   const key = (convoId ?? Constants.NEW_CONVO) || Constants.NEW_CONVO;
+  /** An automatic spec's router may switch these on; only a user's explicit `false` stops it. */
+  const unsetTool = modelSpec.autoRouter === true ? undefined : false;
   const agent: t.TEphemeralAgent = {
     mcp: modelSpec.mcpServers ?? [],
-    web_search: modelSpec.webSearch ?? false,
-    file_search: modelSpec.fileSearch ?? false,
-    execute_code: modelSpec.executeCode ?? false,
+    web_search: modelSpec.webSearch ?? unsetTool,
+    file_search: modelSpec.fileSearch ?? unsetTool,
+    execute_code: modelSpec.executeCode ?? unsetTool,
     memory: modelSpec.memory ?? false,
     artifacts: modelSpec.artifacts === true ? 'default' : modelSpec.artifacts || '',
   };

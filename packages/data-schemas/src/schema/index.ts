@@ -13,6 +13,7 @@ export { default as conversationTagSchema } from './conversationTag';
 export { default as convoSchema } from './convo';
 export { default as fileSchema } from './file';
 export { default as improvementReportSchema } from './improvementReport';
+export { default as routerDecisionSchema } from './routerDecision';
 export { default as keySchema } from './key';
 export { default as messageSchema } from './message';
 export { default as pluginAuthSchema } from './pluginAuth';

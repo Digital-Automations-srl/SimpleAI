@@ -41,6 +41,35 @@ describe('applyModelSpecEphemeralAgent', () => {
     updateEphemeralAgent = jest.fn();
   });
 
+  describe('automatic specs', () => {
+    it('leaves untouched tools unset so the router can switch them on', () => {
+      const modelSpec = createModelSpec({
+        autoRouter: true,
+        mcpServers: undefined,
+        webSearch: undefined,
+        executeCode: undefined,
+        fileSearch: undefined,
+        artifacts: undefined,
+      });
+
+      applyModelSpecEphemeralAgent({ convoId: null, modelSpec, updateEphemeralAgent });
+
+      const agent = updateEphemeralAgent.mock.calls[0][1];
+      expect(agent?.web_search).toBeUndefined();
+      expect(agent?.execute_code).toBeUndefined();
+      expect(agent?.file_search).toBeUndefined();
+    });
+
+    it('keeps a tool the user switched off as an explicit false', () => {
+      writeToolToggle(LocalStorageKeys.LAST_WEB_SEARCH_TOGGLE_, 'convo-auto', false);
+      const modelSpec = createModelSpec({ autoRouter: true, webSearch: undefined });
+
+      applyModelSpecEphemeralAgent({ convoId: 'convo-auto', modelSpec, updateEphemeralAgent });
+
+      expect(updateEphemeralAgent.mock.calls[0][1]?.web_search).toBe(false);
+    });
+  });
+
   // ─── New Conversations ─────────────────────────────────────────────
 
   describe('new conversations always get fresh admin spec config', () => {

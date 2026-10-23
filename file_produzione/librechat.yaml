@@ -249,6 +249,33 @@ modelSpecs:
   # 'Model named "X" not found in configuration.' e ogni agente fissato su quel modello
   # si rompe. Su Vertex il comportamento è invece passthrough e non rompe nulla.
   list:
+    # Router automatico: Jev (TypeSafe) sceglie modello e strumenti a ogni messaggio.
+    # Serve TYPESAFE_API_KEY nel .env; senza chiave, o se Jev non risponde, usa `fallback`.
+    - name: auto
+      label: Automatico
+      description: "Sceglie da solo il modello più adatto alla richiesta"
+      iconURL: anthropic
+      order: 1
+      # Le nuove chat partono in automatico; l'utente lo spegne dal toggle nella barra della chat.
+      default: true
+      preset:
+        endpoint: anthropic
+        model: claude-sonnet-5
+      router:
+        fallback: gpt-5.4
+        historyMessages: 5
+        maxMessageChars: 2000
+        timeoutMs: 4000
+        candidates:
+          opus-4-8: "Fascia alta, Anthropic: analisi lunghe e complesse, ragionamento profondo, lavoro su molti documenti, scrittura accurata"
+          gpt-5.4-reasoning: "Fascia alta, OpenAI: problemi logici, matematici o di programmazione difficili che richiedono ragionamento passo passo"
+          sonnet-5: "Fascia media, Anthropic: scrittura, sintesi e analisi di media complessità, senza strumenti"
+          gpt-5.4: "Fascia media, OpenAI: compiti generali di media complessità, anche con strumenti"
+          haiku-4-5: "Fascia bassa, Anthropic: domande brevi, saluti, riformulazioni, traduzioni semplici"
+          gpt-5.4-mini: "Fascia bassa, OpenAI: domande brevi e fattuali, risposte rapide"
+        tools:
+          web_search: "ricerca sul web per informazioni recenti, notizie, prezzi o fatti che il modello potrebbe non conoscere"
+          execute_code: "esecuzione di codice per calcoli, analisi di dati, grafici o creazione e conversione di file"
     - name: opus-4-8
       label: Opus 4.8
       description: "Il modello Anthropic più capace: analisi complesse e ragionamento profondo"

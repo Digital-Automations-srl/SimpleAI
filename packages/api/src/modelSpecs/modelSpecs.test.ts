@@ -1,4 +1,4 @@
-import { EModelEndpoint } from 'librechat-data-provider';
+import { EModelEndpoint, tModelRouterSchema } from 'librechat-data-provider';
 import type { TModelSpec } from 'librechat-data-provider';
 import {
   applyModelSpecPreset,
@@ -46,6 +46,26 @@ describe('modelSpecs helpers', () => {
       greeting: 'Hello',
     });
     expect(sanitizedModelSpecs.list[0]).not.toHaveProperty('skills');
+  });
+
+  it('keeps the router configuration server-side', () => {
+    const modelSpecs: { list: TModelSpec[] } = {
+      list: [
+        {
+          name: 'auto',
+          label: 'Automatico',
+          preset: { endpoint: EModelEndpoint.anthropic, model: 'claude-sonnet-5' },
+          router: tModelRouterSchema.parse({
+            fallback: 'sonnet',
+            candidates: { sonnet: 'Equilibrato' },
+          }),
+        },
+      ],
+    };
+
+    const sanitizedModelSpecs = sanitizeModelSpecs(modelSpecs);
+    expect(sanitizedModelSpecs.list[0]).not.toHaveProperty('router');
+    expect(sanitizedModelSpecs.list[0]).toMatchObject({ label: 'Automatico', autoRouter: true });
   });
 
   it('should preserve conversation starters on model specs', () => {

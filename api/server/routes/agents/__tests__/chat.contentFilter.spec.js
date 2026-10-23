@@ -21,6 +21,7 @@ jest.mock('@librechat/api', () => ({
     getJob: jest.fn(),
   },
   getSafeErrorMetadata: mockGetSafeErrorMetadata,
+  createModelRouter: jest.fn(() => (_req, _res, next) => next()),
 }));
 
 jest.mock('~/server/middleware', () => ({

@@ -82,7 +82,37 @@ export type TModelSpec = {
   mcpServers?: string[];
   skills?: boolean | string[];
   subagents?: ModelSpecSubagentsConfig;
+  /** Turns the spec into an "automatic" entry: a classifier picks the spec that answers. */
+  router?: TModelRouterConfig;
+  /**
+   * Set by the server in place of `router` when specs reach the client: the client then leaves
+   * tool switches unset, so only a switch the user turned off reaches the router as `false`.
+   */
+  autoRouter?: boolean;
 };
+
+/** Tool keys the router may switch on: built-in tools or `mcp:<server>`. */
+export const MODEL_ROUTER_BUILTIN_TOOLS = ['web_search', 'execute_code', 'file_search'] as const;
+export const MODEL_ROUTER_MCP_PREFIX = 'mcp:';
+
+export const tModelRouterSchema = z.object({
+  /** Spec used whenever the classifier fails, times out, or is unsure. */
+  fallback: z.string(),
+  /** Spec name → description the classifier reads to tell candidates apart. */
+  candidates: z.record(z.string(), z.string()),
+  /** Tool key → when the tool is needed. Tools the user switched off are never re-enabled. */
+  tools: z.record(z.string(), z.string()).optional(),
+  instructions: z.string().optional(),
+  model: z.string().default('jev-latest'),
+  baseURL: z.string().default('https://api.typesafe.ai'),
+  historyMessages: z.number().int().min(1).max(20).default(5),
+  maxMessageChars: z.number().int().min(100).default(2000),
+  timeoutMs: z.number().int().min(100).default(4000),
+  minConfidence: z.number().min(0).max(1).default(0),
+  toolThreshold: z.number().min(0).max(1).default(0.5),
+});
+
+export type TModelRouterConfig = z.infer<typeof tModelRouterSchema>;
 
 export const modelSpecSubagentsSchema = z
   .object({
@@ -205,6 +235,8 @@ export const tModelSpecSchema = z.object({
   mcpServers: z.array(z.string()).optional(),
   skills: z.union([z.boolean(), z.array(z.string())]).optional(),
   subagents: modelSpecSubagentsSchema.optional(),
+  router: tModelRouterSchema.optional(),
+  autoRouter: z.boolean().optional(),
 });
 
 export const specsConfigSchema = z.object({

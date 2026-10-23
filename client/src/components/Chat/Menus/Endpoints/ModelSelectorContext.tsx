@@ -182,7 +182,7 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     if (!searchValue) {
       return null;
     }
-    const allItems = [...modelSpecs, ...mappedEndpoints];
+    const allItems = [...modelSpecs.filter((spec) => spec.autoRouter !== true), ...mappedEndpoints];
     return filterItems(allItems, searchValue, agentsMap, assistantsMap || {}, localize);
   }, [searchValue, modelSpecs, mappedEndpoints, agentsMap, assistantsMap, localize]);
 

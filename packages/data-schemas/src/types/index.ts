@@ -25,6 +25,7 @@ export * from './action';
 export * from './assistant';
 export * from './file';
 export * from './improvementReport';
+export * from './routerDecision';
 export * from './share';
 export * from './pluginAuth';
 /* Memories */

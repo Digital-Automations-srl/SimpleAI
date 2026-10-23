@@ -116,6 +116,30 @@ describe('seedTurnConversation', () => {
     expect(row).toMatchObject({ model: 'claude-sonnet', agent_id: 'agent_persisted' });
   });
 
+  it('keeps a routed turn on the automatic spec instead of the spec that answered', async () => {
+    const userId = new mongoose.Types.ObjectId().toString();
+    const conversationId = randomUUID();
+    const req: TurnConversationRequest = {
+      ...createRequest(userId),
+      modelRouter: {
+        conversation: { spec: 'auto', endpoint: 'anthropic', model: 'claude-sonnet-5' },
+      },
+    };
+
+    await saveTurnConversation(store, {
+      req,
+      conversationId,
+      endpoint: 'azureOpenAI',
+      endpointType: undefined,
+      endpointOptions: { spec: 'haiku', model: 'gpt-5.4-mini' },
+      context: 'save.spec routed',
+      ctx: getConversationWriteContext(req),
+    });
+
+    const row = await store.getConvo(userId, conversationId);
+    expect(row).toMatchObject({ spec: 'auto', endpoint: 'anthropic', model: 'claude-sonnet-5' });
+  });
+
   it('leaves an existing conversation to the message save', async () => {
     const userId = new mongoose.Types.ObjectId().toString();
     const conversationId = randomUUID();

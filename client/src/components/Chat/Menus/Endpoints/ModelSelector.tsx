@@ -65,15 +65,29 @@ function ModelSelectorContent() {
     [localize, agentsMap, modelSpecs, selectedValues, mappedEndpoints],
   );
 
+  /** The automatic spec is driven by the composer toggle, never picked from this menu. */
+  const isAutoSelected = useMemo(
+    () =>
+      modelSpecs.some((spec) => spec.autoRouter === true && spec.name === selectedValues.modelSpec),
+    [modelSpecs, selectedValues.modelSpec],
+  );
+  const menuSpecs = useMemo(
+    () => modelSpecs.filter((spec) => spec.autoRouter !== true),
+    [modelSpecs],
+  );
+
   const trigger = (
     <TooltipAnchor
       aria-label={localize('com_ui_select_model')}
-      description={modelSelectorHint}
+      description={
+        isAutoSelected ? localize('com_ui_auto_model_selector_disabled') : modelSelectorHint
+      }
       render={
         <button
           data-testid="model-selector-button"
           aria-keyshortcuts={modelSelectorAriaKey}
-          className="my-1 flex h-9 max-w-full items-center gap-2 rounded-xl border border-border-light bg-presentation px-3 py-2 text-sm text-text-primary hover:bg-surface-active-alt"
+          disabled={isAutoSelected}
+          className="my-1 flex h-9 max-w-full items-center gap-2 rounded-xl border border-border-light bg-presentation px-3 py-2 text-sm text-text-primary hover:bg-surface-active-alt disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-presentation"
           aria-label={localize('com_ui_select_model')}
         >
           {selectedIcon && React.isValidElement(selectedIcon) && (
@@ -109,13 +123,13 @@ function ModelSelectorContent() {
           <>
             {/* Render ungrouped modelSpecs (no group field) */}
             {renderModelSpecs(
-              modelSpecs?.filter((spec) => !spec.group) || [],
+              menuSpecs.filter((spec) => !spec.group),
               selectedValues.modelSpec || '',
             )}
             {/* Render endpoints (will include grouped specs matching endpoint names) */}
             {renderEndpoints(mappedEndpoints ?? [])}
             {/* Render custom groups (specs with group field not matching any endpoint) */}
-            {renderCustomGroups(modelSpecs || [], mappedEndpoints ?? [])}
+            {renderCustomGroups(menuSpecs, mappedEndpoints ?? [])}
           </>
         )}
       </Menu>

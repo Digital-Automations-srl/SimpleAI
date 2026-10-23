@@ -19,6 +19,11 @@ import {
   type ImprovementReportMethods,
   type CreateImprovementReportData,
 } from './improvementReport';
+import {
+  createRouterDecisionMethods,
+  type RouterDecisionMethods,
+  type CreateRouterDecisionData,
+} from './routerDecision';
 import { createTokenMethods, type TokenMethods } from './token';
 import { createRoleMethods, RoleConflictError } from './role';
 import { createKeyMethods, type KeyMethods } from './key';
@@ -239,6 +244,7 @@ export type AllMethods = UserMethods &
   KeyMethods &
   FileMethods &
   ImprovementReportMethods &
+  RouterDecisionMethods &
   MemoryMethods &
   ToolFavoriteMethods &
   AgentCategoryMethods &
@@ -470,6 +476,7 @@ export function createMethods(
     ...createKeyMethods(mongoose),
     ...createFileMethods(mongoose),
     ...createImprovementReportMethods(mongoose),
+    ...createRouterDecisionMethods(mongoose),
     ...createMemoryMethods(mongoose),
     ...createToolFavoriteMethods(mongoose),
     ...createAgentCategoryMethods(mongoose),
@@ -529,6 +536,8 @@ export type {
   FileOwnerScope,
   ImprovementReportMethods,
   CreateImprovementReportData,
+  RouterDecisionMethods,
+  CreateRouterDecisionData,
   MemoryMethods,
   ToolFavoriteMethods,
   AgentCategoryMethods,

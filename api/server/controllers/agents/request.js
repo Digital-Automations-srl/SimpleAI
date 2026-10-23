@@ -52,6 +52,7 @@ const {
   resolvePersistableCodeEnvironmentDecision,
   getFailedTurnTraceFields,
   resolveFailedTurnContent,
+  withRouterConversationFields,
 } = require('@librechat/api');
 const { disposeClient } = require('~/server/cleanup');
 const {
@@ -533,7 +534,9 @@ async function saveErrorTurn(
       : decisionFields;
     await saveConvo(
       reqCtx,
-      { conversationId, ...convoFields },
+      seedConvo
+        ? withRouterConversationFields(req, { conversationId, ...convoFields })
+        : { conversationId, ...convoFields },
       seedConvo
         ? {
             context,

@@ -52,6 +52,7 @@ import { mainTextareaId, BadgeItem } from '~/common';
 import PendingSteerChips from './PendingSteerChips';
 import PendingQuoteChips from './PendingQuoteChips';
 import AttachFileChat from './Files/AttachFileChat';
+import AutoModelToggle from './AutoModelToggle';
 import CodeWorkspaceMenu from './CodeWorkspaceMenu';
 import useSteering from '~/hooks/Chat/useSteering';
 import CodeApprovalMenu from './CodeApprovalMenu';
@@ -861,6 +862,9 @@ const ChatForm = memo(function ChatForm({
                     setFilesLoading={setFilesLoading}
                   />
                 </div>
+                {index === 0 && (
+                  <AutoModelToggle conversation={conversation} newConversation={newConversation} />
+                )}
                 <BadgeRow
                   showEphemeralBadges={
                     !!endpoint &&

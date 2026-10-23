@@ -1,6 +1,16 @@
 {
-  "version": "2.0.1",
+  "version": "2.1.0",
   "entries": [
+    {
+      "version": "2.1.0",
+      "date": "2026-10-23",
+      "title": "Modalità Automatico",
+      "changes": [
+        "Nuovo interruttore Automatico nella barra della chat, acceso di base: Simple AI sceglie da solo il modello più adatto a ogni messaggio",
+        "In modalità Automatico la ricerca web e l'esecuzione di codice si attivano quando servono; se le spegni restano spente",
+        "Sotto ogni risposta vedi quale modello ha risposto; spegnendo Automatico torni al modello che avevi scelto"
+      ]
+    },
     {
       "version": "2.0.1",
       "date": "2026-04-16",

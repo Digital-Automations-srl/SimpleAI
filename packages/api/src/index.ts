@@ -94,6 +94,7 @@ export * from './endpoints';
 export * from './files';
 /* Improvement reports */
 export * from './improvementReports';
+export * from './modelRouter';
 /* Images */
 export * from './images';
 /* Storage */

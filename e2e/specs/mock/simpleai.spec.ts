@@ -3,7 +3,11 @@ import type { Page } from '@playwright/test';
 import {
   MOCK_ENDPOINTS,
   NEW_CHAT_PATH,
+  messagesView,
+  replyPrompt,
+  replyText,
   selectMockEndpoint,
+  sendMessageAndWaitForCompletion,
   uniqueName,
   uploadViaUnifiedButton,
 } from './helpers';
@@ -177,6 +181,37 @@ test.describe('SimpleAI composer attachments', () => {
     await expect(page.getByText(notes)).toBeVisible();
     await expect(page.getByText(data)).toBeVisible();
     await expect.poll(() => uploads.length).toBe(2);
+  });
+});
+
+test.describe('SimpleAI automatic model', () => {
+  test('the Auto toggle routes the chat, locks the selector and stays on', async ({ page }) => {
+    await openNewChat(page);
+    const selector = page.getByTestId('model-selector-button');
+    const autoToggle = page.getByRole('checkbox', { name: 'Auto' });
+
+    await selector.click();
+    await expect(page.getByRole('option', { name: /E2E Automatico/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await autoToggle.click();
+    await expect(autoToggle).toBeChecked();
+    await expect(selector).toBeDisabled();
+    await expect(selector).toContainText('E2E Automatico');
+
+    const label = uniqueName('auto');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+    await expect(messagesView(page).getByText('Mock Provider B').first()).toBeVisible();
+
+    await page.reload();
+    await expect(autoToggle).toBeChecked();
+    await expect(selector).toContainText('E2E Automatico');
+
+    await autoToggle.click();
+    await expect(autoToggle).not.toBeChecked();
+    await expect(selector).toBeEnabled();
+    await expect(selector).not.toContainText('E2E Automatico');
   });
 });
 

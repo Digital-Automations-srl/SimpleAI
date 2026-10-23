@@ -320,6 +320,19 @@ modelSpecs:
     # Focused Bombadil HITL fixture. The fake model calls ask_user_question
     # only for the explicit E2E marker, so enabling the tool here cannot make
     # unrelated mock conversations pause.
+    # SimpleAI automatic routing. The mock suite runs without TYPESAFE_API_KEY, so every
+    # turn exercises the fallback path end to end.
+    - name: 'e2e-auto'
+      label: 'E2E Automatico'
+      preset:
+        endpoint: 'Mock Provider A'
+        model: 'mock-model-a'
+      router:
+        fallback: 'e2e-mock-provider-b'
+        candidates:
+          e2e-mock-provider-a: 'Domande semplici'
+          e2e-mock-provider-b: 'Domande complesse'
+
     - name: 'e2e-hitl'
       label: 'E2E HITL'
       askUserQuestion: true

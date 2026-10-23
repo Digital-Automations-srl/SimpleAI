@@ -44,6 +44,7 @@ import { createUserModel } from './user';
 import { createRoleModel } from './role';
 import { createFileModel } from './file';
 import { createImprovementReportModel } from './improvementReport';
+import { createRouterDecisionModel } from './routerDecision';
 import { createKeyModel } from './key';
 import logger from '~/config/winston';
 
@@ -68,6 +69,7 @@ export function createModels(mongoose: typeof import('mongoose')): {
   Assistant: ReturnType<typeof createAssistantModel>;
   File: ReturnType<typeof createFileModel>;
   ImprovementReport: ReturnType<typeof createImprovementReportModel>;
+  RouterDecision: ReturnType<typeof createRouterDecisionModel>;
   Banner: ReturnType<typeof createBannerModel>;
   Key: ReturnType<typeof createKeyModel>;
   PluginAuth: ReturnType<typeof createPluginAuthModel>;
@@ -118,6 +120,7 @@ export function createModels(mongoose: typeof import('mongoose')): {
     Assistant: createAssistantModel(mongoose),
     File: createFileModel(mongoose),
     ImprovementReport: createImprovementReportModel(mongoose),
+    RouterDecision: createRouterDecisionModel(mongoose),
     Banner: createBannerModel(mongoose),
     Key: createKeyModel(mongoose),
     PluginAuth: createPluginAuthModel(mongoose),
