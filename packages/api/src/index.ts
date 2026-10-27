@@ -95,6 +95,7 @@ export * from './files';
 /* Improvement reports */
 export * from './improvementReports';
 export * from './modelRouter';
+export * from './agentBuilder';
 export * from './modelFallback';
 /* Images */
 export * from './images';

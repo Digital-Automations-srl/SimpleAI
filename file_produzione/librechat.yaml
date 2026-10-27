@@ -233,6 +233,12 @@ webSearch:
   safeSearch: 1
   scraperTimeout: 5000
 
+# Scheda "Crea" del pannello agenti: l'utente descrive l'agente e `spec` lo configura
+# (nome, istruzioni, categoria, modello, strumenti). I modelli assegnabili sono i candidati
+# della spec automatica `auto`; per sceglierne altri: `models: { <spec>: "<quando usarlo>" }`.
+# Senza questo blocco il pannello agenti resta solo il modulo classico.
+agentBuilder:
+  spec: sonnet-5
 
 # Ripiego automatico: se un modello va in rate limit, sovraccarico o errore 5xx prima di
 # rispondere, la stessa richiesta passa a un altro modello della stessa fascia, poi di quelle

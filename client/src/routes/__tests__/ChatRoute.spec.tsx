@@ -78,6 +78,10 @@ jest.mock('~/utils', () => ({
   clearMessagesCache: jest.fn(),
   logger: { log: jest.fn() },
 }));
+jest.mock('~/components/SidePanel/Agents/Create/useAgentPreviewTemporary', () => ({
+  __esModule: true,
+  default: () => {},
+}));
 jest.mock('~/components/Chat/ChatView', () => ({
   __esModule: true,
   default: () => <div data-testid="composer">{mockConversation.conversationId}</div>,

@@ -177,6 +177,7 @@ describe('GET /api/config', () => {
       expect(response.body).not.toHaveProperty('sharePointPickerSharePointScope');
       expect(response.body).not.toHaveProperty('conversationImportMaxFileSize');
       expect(response.body).not.toHaveProperty('insightsEnabled');
+      expect(response.body).not.toHaveProperty('agentBuilder');
     });
 
     it('should strip authenticated-only informational fields from unauthenticated response (#12688)', async () => {
@@ -484,6 +485,36 @@ describe('GET /api/config', () => {
       process.env.ENABLE_INSIGHTS = 'true';
       response = await request(app).get('/api/config');
       expect(response.body.insightsEnabled).toBe(true);
+    });
+
+    it('should advertise the SimpleAI agent builder only for a concrete spec', async () => {
+      const builderSpec = { name: 'builder', preset: { endpoint: 'openAI', model: 'gpt-x' } };
+      const routerSpec = {
+        name: 'auto',
+        preset: { endpoint: 'openAI', model: 'gpt-x' },
+        router: {},
+      };
+      const app = createApp(mockUser);
+
+      mockGetAppConfig.mockResolvedValue(baseAppConfig);
+      let response = await request(app).get('/api/config');
+      expect(response.body.agentBuilder).toBe(false);
+
+      mockGetAppConfig.mockResolvedValue({
+        ...baseAppConfig,
+        config: { agentBuilder: { spec: 'auto' } },
+        modelSpecs: { list: [builderSpec, routerSpec] },
+      });
+      response = await request(app).get('/api/config');
+      expect(response.body.agentBuilder).toBe(false);
+
+      mockGetAppConfig.mockResolvedValue({
+        ...baseAppConfig,
+        config: { agentBuilder: { spec: 'builder' } },
+        modelSpecs: { list: [builderSpec, routerSpec] },
+      });
+      response = await request(app).get('/api/config');
+      expect(response.body.agentBuilder).toBe(true);
     });
 
     it('should advertise Langfuse fanout only when the toggle and collector URL are configured', async () => {

@@ -1,5 +1,5 @@
 import { Constants } from 'librechat-data-provider';
-import { atomFamily, useRecoilCallback } from 'recoil';
+import { atom, atomFamily, useRecoilCallback } from 'recoil';
 import type { TEphemeralAgent } from 'librechat-data-provider';
 import { logger } from '~/utils';
 
@@ -14,6 +14,13 @@ export const ephemeralAgentByConvoId = atomFamily<TEphemeralAgent | null, string
       });
     },
   ] as const,
+});
+
+/** SimpleAI: the agent preview in progress. `key` identifies its chat once seen; `from` is the
+ *  conversation it was opened from, still in the route while navigation catches up. */
+export const agentPreviewState = atom<{ key: string | null; from: string | null } | null>({
+  key: 'agentPreviewState',
+  default: null,
 });
 
 export function useUpdateEphemeralAgent() {

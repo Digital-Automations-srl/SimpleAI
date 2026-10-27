@@ -125,7 +125,7 @@ export async function openAgentBuilder(page: Page) {
       await page.getByTestId('panel-switcher-button').click();
       await page.getByRole('menuitemcheckbox', { name: 'Agent Builder' }).click();
     } else {
-      const agentBuilderButton = page.getByRole('button', { name: 'Agent Builder' });
+      const agentBuilderButton = page.getByRole('button', { name: 'Agent Builder', exact: true });
       await expect(agentBuilderButton).toBeVisible();
       if ((await agentBuilderButton.getAttribute('aria-pressed')) !== 'true') {
         await agentBuilderButton.click();
@@ -133,6 +133,15 @@ export async function openAgentBuilder(page: Page) {
     }
   }
   await expect(form).toBeVisible();
+  /** SimpleAI: with `agentBuilder` configured a new agent opens on the "Create" tab; upstream
+   *  specs drive the full form, which lives under "Configure". */
+  const configureTab = form.getByRole('tab', { name: 'Configure' });
+  if (
+    (await configureTab.count()) > 0 &&
+    (await configureTab.getAttribute('aria-selected')) !== 'true'
+  ) {
+    await configureTab.click();
+  }
   return form;
 }
 

@@ -1178,3 +1178,42 @@ export type AgentFile = {
   object: string;
   purpose: 'fine-tune' | 'fine-tune-results' | 'agents' | 'agents_output';
 };
+
+/** Built-in tools the agent builder may switch on; each maps to an `AgentForm` capability flag. */
+export type AgentBuilderTool = 'web_search' | 'execute_code';
+
+export type AgentBuilderMessage = {
+  role: 'user' | 'assistant';
+  text: string;
+};
+
+/** The form as it stands, so a follow-up request refines the draft instead of starting over. */
+export type AgentBuilderCurrent = {
+  name?: string | null;
+  description?: string | null;
+  instructions?: string | null;
+  category?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  tools?: AgentBuilderTool[];
+};
+
+export type AgentBuilderRequest = {
+  messages: AgentBuilderMessage[];
+  current?: AgentBuilderCurrent;
+};
+
+export type AgentBuilderDraft = {
+  name?: string;
+  description?: string;
+  instructions?: string;
+  category?: string;
+  provider?: string;
+  model?: string;
+  tools?: AgentBuilderTool[];
+};
+
+export type AgentBuilderResponse = {
+  reply: string;
+  draft: AgentBuilderDraft;
+};

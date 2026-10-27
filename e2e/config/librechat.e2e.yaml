@@ -25,6 +25,11 @@ interface:
     use: true
     minIntervalMinutes: 1
 
+# SimpleAI: the "Crea" tab of the agent panel. Mock Provider A drafts the agent and the
+# models it may assign are the candidates of the e2e-auto router spec below.
+agentBuilder:
+  spec: 'e2e-mock-provider-a'
+
 # Enables the memory feature so the MEMORIES.USE permission is granted and the
 # ephemeral memory badge (inline set_memory/delete_memory tools) is available.
 # memory.spec.ts toggles it via the tools dropdown.

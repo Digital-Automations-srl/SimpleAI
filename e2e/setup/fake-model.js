@@ -56,6 +56,9 @@ const ACTIVITY_PHASE_REPLY_MARKER = 'E2E_ACTIVITY_PHASE_REPLY:';
 const ACTIVITY_FAILED_REPLY_MARKER = 'E2E_ACTIVITY_FAILED_REPLY:';
 const ACTIVITY_PROSE_REPLY_MARKER = 'E2E_ACTIVITY_PROSE_REPLY:';
 const ASK_USER_QUESTION_MARKER = 'E2E_ASK_USER_QUESTION:';
+/** SimpleAI: the agent builder's model answers through the `configure_agent` tool. */
+const AGENT_BUILDER_MARKER = 'E2E_AGENT_BUILDER:';
+const AGENT_BUILDER_TOOL_NAME = 'configure_agent';
 const RESUME_ICON_REPLY_MARKER = 'E2E_RESUME_ICON_REPLY:';
 const FORCED_ERROR_MARKER = 'E2E_FORCED_ERROR:';
 const MARKDOWN_REPLY_MARKER = 'E2E_MARKDOWN_REPLY';
@@ -1662,6 +1665,33 @@ function askUserQuestionResponses(label, toolNames) {
   };
 }
 
+function agentBuilderResponses(label, toolNames) {
+  if (!toolNames.has(AGENT_BUILDER_TOOL_NAME)) {
+    return {
+      responses: [`E2E agent builder unavailable: ${AGENT_BUILDER_TOOL_NAME} was not advertised.`],
+    };
+  }
+  return {
+    responses: [''],
+    toolCalls: [
+      {
+        id: `call_e2e_agent_builder_${label}`,
+        name: AGENT_BUILDER_TOOL_NAME,
+        args: {
+          reply: `E2E agent builder reply: ${label}`,
+          name: `E2E Builder ${label}`,
+          description: `Drafted by the agent builder for ${label}`,
+          instructions: `You are the E2E builder agent for ${label}.`,
+          category: 'general',
+          model: 'e2e-mock-provider-b',
+          tools: ['web_search'],
+        },
+        type: 'tool_call',
+      },
+    ],
+  };
+}
+
 function findLastToolMessageText(messages, requiredToken) {
   for (let index = (messages ?? []).length - 1; index >= 0; index--) {
     const message = messages[index];
@@ -3142,6 +3172,11 @@ function resolveResponses({ graph, messages, text, toolNames }) {
   const activityFailedLabel = getMarkerValue(text, ACTIVITY_FAILED_REPLY_MARKER);
   if (activityFailedLabel) {
     return activityFailedReplyResponses(activityFailedLabel, toolNames);
+  }
+
+  const agentBuilderLabel = getMarkerValue(text, AGENT_BUILDER_MARKER);
+  if (agentBuilderLabel) {
+    return agentBuilderResponses(agentBuilderLabel, toolNames);
   }
 
   const askUserQuestionLabel = getMarkerValue(text, ASK_USER_QUESTION_MARKER);

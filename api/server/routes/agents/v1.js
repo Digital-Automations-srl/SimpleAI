@@ -1,9 +1,9 @@
 const express = require('express');
-const { generateCheckAccess } = require('@librechat/api');
+const { generateCheckAccess, createAgentBuilderHandler } = require('@librechat/api');
 const { PermissionTypes, Permissions, PermissionBits } = require('librechat-data-provider');
 const { configMiddleware, canAccessAgentResource } = require('~/server/middleware');
 const v1 = require('~/server/controllers/agents/v1');
-const { getRoleByName } = require('~/models');
+const { getRoleByName, getUserKey, getUserKeyValues, getActiveCategories } = require('~/models');
 const actions = require('./actions');
 const tools = require('./tools');
 
@@ -48,6 +48,17 @@ router.delete('/categories/:value', checkAgentCreate, v1.deleteCategory);
  * @returns {Agent} 201 - Success response - application/json
  */
 router.post('/', checkAgentCreate, configMiddleware, v1.createAgent);
+
+/**
+ * SimpleAI: drafts an agent configuration from the user's description.
+ * @route POST /agents/builder/draft
+ */
+router.post(
+  '/builder/draft',
+  checkAgentCreate,
+  configMiddleware,
+  createAgentBuilderHandler({ getUserKey, getUserKeyValues, getActiveCategories }),
+);
 
 /**
  * Retrieves basic agent information (VIEW permission required).

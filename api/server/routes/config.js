@@ -15,6 +15,7 @@ const {
   resolveCodeEnvironmentDecisionVersion,
   resolveCodeEnvironmentMoveCapabilities,
   resolveCodeEnvironmentTransitionVersion,
+  isAgentBuilderEnabled,
 } = require('@librechat/api');
 const { EModelEndpoint, defaultSocialLogins } = require('librechat-data-provider');
 const { logger, getTenantId, SystemCapabilities } = require('@librechat/data-schemas');
@@ -316,6 +317,7 @@ router.get('/', async function (req, res) {
       langfuseFanoutEnabled,
       langfuseConnectionAccess,
       insightsEnabled: isEnabled(process.env.ENABLE_INSIGHTS),
+      agentBuilder: isAgentBuilderEnabled(appConfig),
       compactionEnabled: appConfig?.summarization?.enabled !== false,
       ...(codeEnvironmentDecisionVersion != null ? { codeEnvironmentDecisionVersion } : {}),
       ...codeEnvironmentMoveCapabilities,

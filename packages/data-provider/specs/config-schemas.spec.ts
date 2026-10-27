@@ -1,4 +1,5 @@
 import {
+  agentBuilderSchema,
   modelFallbackSchema,
   paramDefinitionSchema,
   agentsEndpointSchema,
@@ -1953,6 +1954,28 @@ describe('interfaceSchema agentSelectorLimit', () => {
     expect(normalizeAgentSelectorLimit(0)).toBe(10);
     expect(normalizeAgentSelectorLimit(101)).toBe(10);
     expect(normalizeAgentSelectorLimit('10')).toBe(10);
+  });
+});
+
+describe('agentBuilderSchema (SimpleAI)', () => {
+  it('requires the spec that writes the draft', () => {
+    const result = configSchema.safeParse({ version: '1.0.0', agentBuilder: {} });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['agentBuilder', 'spec']);
+  });
+
+  it('accepts a spec with model descriptions', () => {
+    const builder = { spec: 'sonnet', models: { haiku: 'Compiti semplici' } };
+    expect(agentBuilderSchema.parse(builder)).toEqual(builder);
+    expect(configSchema.parse({ version: '1.0.0', agentBuilder: builder }).agentBuilder).toEqual(
+      builder,
+    );
+  });
+
+  it('rejects model descriptions that are not text', () => {
+    expect(agentBuilderSchema.safeParse({ spec: 'sonnet', models: { haiku: 3 } }).success).toBe(
+      false,
+    );
   });
 });
 

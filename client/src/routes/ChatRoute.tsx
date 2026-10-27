@@ -33,6 +33,7 @@ import {
   useLocalize,
 } from '~/hooks';
 import { ToolCallsMapProvider, useAgentsMapContext } from '~/Providers';
+import useAgentPreviewTemporary from '~/components/SidePanel/Agents/Create/useAgentPreviewTemporary';
 import ChatView from '~/components/Chat/ChatView';
 import { NotificationSeverity } from '~/common';
 import useAuthRedirect from './useAuthRedirect';
@@ -162,6 +163,7 @@ export default function ChatRoute() {
       setIsTemporary(false);
     }
   }, [conversationId, isTemporaryChat, setIsTemporary, defaultTemporaryChat]);
+  useAgentPreviewTemporary(conversationId, conversation);
 
   /** This effect is mainly for the first conversation state change on first load of the page.
    *  Adjusting this may have unintended consequences on the conversation state.

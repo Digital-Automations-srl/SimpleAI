@@ -2516,6 +2516,8 @@ export type TStartupConfig = {
   langfuseFanoutEnabled?: boolean;
   langfuseConnectionAccess?: boolean;
   insightsEnabled?: boolean;
+  /** SimpleAI: the agent panel offers the "Crea" tab, where a model drafts the agent. */
+  agentBuilder?: boolean;
   /** Manual context compaction, gated by the same `summarization.enabled`
    *  switch that governs the automatic detour. */
   compactionEnabled?: boolean;
@@ -3122,6 +3124,15 @@ export type TOpenIdDiscoveryConfig = z.infer<typeof openIdDiscoverySchema>;
 /** Maximum CAS attempts per ACL document, including the initial attempt. */
 export const permissionWriteAttemptsSchema = z.number().int().min(1).max(100).default(3);
 
+/** SimpleAI: the "Crea" tab of the agent panel, where a model drafts the agent from a description. */
+export const agentBuilderSchema = z.object({
+  /** Model spec whose endpoint and model write the draft. */
+  spec: z.string(),
+  /** Spec name → when to pick it. Defaults to the candidates of the automatic (router) spec. */
+  models: z.record(z.string(), z.string()).optional(),
+});
+
+export type TAgentBuilderConfig = z.infer<typeof agentBuilderSchema>;
 
 /** SimpleAI: model specs grouped in tiers, from the lowest to the highest, that a failing model falls back to. */
 export const modelFallbackSchema = z.object({
@@ -3138,6 +3149,7 @@ export type TModelFallbackMeta = {
 
 export const configSchema = z.object({
   version: z.string(),
+  agentBuilder: agentBuilderSchema.optional(),
   modelFallback: modelFallbackSchema.optional(),
   permissions: z.object({ maxWriteAttempts: permissionWriteAttemptsSchema }).optional(),
   cache: z.boolean().default(true),

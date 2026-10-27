@@ -38,10 +38,11 @@ import { useResourcePermissions } from '~/hooks/useResourcePermissions';
 import { useSelectAgent, useLocalize, useAuthContext } from '~/hooks';
 import { useAgentPanelContext } from '~/Providers/AgentPanelContext';
 import { resolveCapabilityTools } from './Tools/items/capabilities';
+import { useAgentBuilderState } from './Create/useAgentBuilderState';
+import AgentBuilderTabs from './Create/AgentBuilderTabs';
 import AgentPanelSkeleton from './AgentPanelSkeleton';
 import AdvancedPanel from './Advanced/AdvancedPanel';
 import { Panel, isEphemeralAgent } from '~/common';
-import AgentConfig from './AgentConfig';
 import AgentSelect from './AgentSelect';
 import AgentFooter from './AgentFooter';
 import ModelPanel from './ModelPanel';
@@ -348,6 +349,7 @@ export default function AgentPanel() {
     ) ?? 'user';
 
   const { onSelect: onSelectAgent } = useSelectAgent();
+  const builderState = useAgentBuilderState(current_agent_id);
 
   const modelsQuery = useGetModelsQuery({ refetchOnMount: 'always' });
   const basicAgentQuery = useGetAgentByIdQuery(current_agent_id);
@@ -778,7 +780,7 @@ export default function AgentPanel() {
             />
           )}
           {canEditAgent && !agentQuery.isInitialLoading && activePanel === Panel.builder && (
-            <AgentConfig />
+            <AgentBuilderTabs {...builderState} />
           )}
           {canEditAgent && !agentQuery.isInitialLoading && activePanel === Panel.advanced && (
             <AdvancedPanel />

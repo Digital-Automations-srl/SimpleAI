@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import {
   MOCK_ENDPOINTS,
   NEW_CHAT_PATH,
@@ -7,10 +7,13 @@ import {
   replyPrompt,
   replyText,
   selectMockEndpoint,
+  sendMessage,
   sendMessageAndWaitForCompletion,
   uniqueName,
   uploadViaUnifiedButton,
 } from './helpers';
+import type { AgentDetail } from './agents.helpers';
+import { cleanupAgent, openAgentBuilder } from './agents.helpers';
 
 /**
  * SimpleAI fork features and fork-only fixes. Upstream specs cover the shared UI; this file
@@ -32,6 +35,15 @@ async function dismissChangelogIfShown(page: Page) {
 async function openNewChat(page: Page) {
   await page.goto(NEW_CHAT_PATH, { timeout: 10000 });
   await dismissChangelogIfShown(page);
+}
+
+/** Drafts an agent in the "Create" tab through the fake model's builder marker. */
+async function draftAgent(form: Locator, label: string) {
+  await form
+    .getByRole('textbox', { name: 'Describe the agent you want to create…' })
+    .fill(`E2E_AGENT_BUILDER:${label}`);
+  await form.getByRole('button', { name: 'Send to the agent builder' }).click();
+  await expect(form.getByText(`E2E agent builder reply: ${label}`)).toBeVisible();
 }
 
 test.describe('SimpleAI branding', () => {
@@ -258,6 +270,136 @@ test.describe('SimpleAI model fallback', () => {
   });
 });
 
+test.describe('SimpleAI agent builder', () => {
+  test('the Create tab drafts the agent from a description and saves it', async ({ page }) => {
+    const form = await openAgentBuilder(page);
+    await dismissChangelogIfShown(page);
+    await form.getByRole('tab', { name: 'Create' }).click();
+
+    const label = uniqueName('builder');
+    await form
+      .getByRole('textbox', { name: 'Describe the agent you want to create…' })
+      .fill(`E2E_AGENT_BUILDER:${label}`);
+    const [draftResponse] = await Promise.all([
+      page.waitForResponse((r) => new URL(r.url()).pathname === '/api/agents/builder/draft'),
+      form.getByRole('button', { name: 'Send to the agent builder' }).click(),
+    ]);
+    expect(draftResponse.status()).toBe(200);
+    await expect(form.getByText(`E2E agent builder reply: ${label}`)).toBeVisible();
+
+    await form.getByRole('button', { name: 'Review the configuration' }).click();
+    await expect(form.getByRole('tab', { name: 'Configure' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(form.getByLabel('Agent name')).toHaveValue(`E2E Builder ${label}`);
+    await expect(form.locator('#provider')).toContainText('mock-model-b');
+
+    const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.request().method() === 'POST' &&
+          new URL(r.url()).pathname === '/api/agents' &&
+          r.status() === 201,
+      ),
+      form.getByRole('button', { name: 'Create', exact: true }).click(),
+    ]);
+    const agent = (await createResponse.json()) as AgentDetail;
+    try {
+      expect(agent).toMatchObject({
+        name: `E2E Builder ${label}`,
+        description: `Drafted by the agent builder for ${label}`,
+        instructions: `You are the E2E builder agent for ${label}.`,
+        provider: 'Mock Provider B',
+        model: 'mock-model-b',
+      });
+      expect(agent.tools).toContain('web_search');
+    } finally {
+      await cleanupAgent(page, agent.id);
+    }
+  });
+
+  test('"Try the agent" chats with the unsaved draft in a temporary chat', async ({ page }) => {
+    const form = await openAgentBuilder(page);
+    await dismissChangelogIfShown(page);
+    await form.getByRole('tab', { name: 'Create' }).click();
+
+    const label = uniqueName('preview');
+    await form
+      .getByRole('textbox', { name: 'Describe the agent you want to create…' })
+      .fill(`E2E_AGENT_BUILDER:${label}`);
+    await form.getByRole('button', { name: 'Send to the agent builder' }).click();
+    await expect(form.getByText(`E2E agent builder reply: ${label}`)).toBeVisible();
+
+    await form.getByRole('button', { name: 'Try the agent' }).click();
+    const response = await sendMessage(page, replyPrompt(label));
+    expect(response.ok()).toBeTruthy();
+    expect(response.request().postDataJSON()).toMatchObject({
+      endpoint: 'Mock Provider B',
+      model: 'mock-model-b',
+      promptPrefix: `You are the E2E builder agent for ${label}.`,
+      isTemporary: true,
+      ephemeralAgent: { web_search: true, execute_code: false, mcp: [] },
+    });
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible({ timeout: 30000 });
+  });
+
+  test('"Try the agent" from an existing conversation is still a temporary chat', async ({
+    page,
+  }) => {
+    await openNewChat(page);
+    await selectMockEndpoint(page, MOCK_ENDPOINTS[0]);
+    const label = uniqueName('preview-existing');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(`${label}-first`));
+    await expect(page).toHaveURL(/\/c\/[0-9a-fA-F-]{36}$/);
+
+    /** Opens the builder in place: `openAgentBuilder` would navigate back to a new chat. */
+    const agentBuilderButton = page.getByRole('button', { name: 'Agent Builder', exact: true });
+    if ((await agentBuilderButton.getAttribute('aria-pressed')) !== 'true') {
+      await agentBuilderButton.click();
+    }
+    const form = page.getByRole('form', { name: 'Agent configuration form' });
+    await draftAgent(form, label);
+
+    await form.getByRole('button', { name: 'Try the agent' }).click();
+    const response = await sendMessage(page, replyPrompt(label));
+    expect(response.request().postDataJSON()).toMatchObject({
+      endpoint: 'Mock Provider B',
+      promptPrefix: `You are the E2E builder agent for ${label}.`,
+      isTemporary: true,
+      ephemeralAgent: { web_search: true, execute_code: false, mcp: [] },
+    });
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible({ timeout: 30000 });
+  });
+
+  /** Leaving the preview gives back the user's default: the next chat is saved as usual. */
+  test('after an unsent preview, "New chat" is not temporary', async ({ page }) => {
+    const form = await openAgentBuilder(page);
+    await dismissChangelogIfShown(page);
+    const label = uniqueName('preview-unsent');
+    await form.getByRole('tab', { name: 'Create' }).click();
+    await draftAgent(form, label);
+
+    await form.getByRole('button', { name: 'Try the agent' }).click();
+    await page.getByTestId('new-chat-button').click();
+    const response = await sendMessage(page, replyPrompt(label));
+    expect(response.request().postDataJSON().isTemporary).toBe(false);
+  });
+
+  test('after a sent preview, "New chat" is not temporary', async ({ page }) => {
+    const form = await openAgentBuilder(page);
+    await dismissChangelogIfShown(page);
+    const label = uniqueName('preview-sent');
+    await form.getByRole('tab', { name: 'Create' }).click();
+    await draftAgent(form, label);
+
+    await form.getByRole('button', { name: 'Try the agent' }).click();
+    await sendMessageAndWaitForCompletion(page, replyPrompt(`${label}-preview`));
+    await page.getByTestId('new-chat-button').click();
+    const response = await sendMessage(page, replyPrompt(label));
+    expect(response.request().postDataJSON().isTemporary).toBe(false);
+  });
+});
 
 test.describe('SimpleAI share page', () => {
   test('an unknown share id renders without crashing', async ({ page }) => {

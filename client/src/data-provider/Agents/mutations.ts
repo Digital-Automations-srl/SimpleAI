@@ -538,3 +538,13 @@ export const useDeleteCategoryMutation = (
     onError: options?.onError,
   });
 };
+
+/** SimpleAI: the "Crea" tab asks the server to draft the agent from the user's description. */
+export const useGenerateAgentDraftMutation = (): UseMutationResult<
+  t.AgentBuilderResponse,
+  Error,
+  t.AgentBuilderRequest
+> =>
+  useMutation([MutationKeys.generateAgentDraft], (request: t.AgentBuilderRequest) =>
+    dataService.generateAgentDraft(request),
+  );
