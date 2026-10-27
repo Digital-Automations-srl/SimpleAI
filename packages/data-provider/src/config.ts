@@ -3122,8 +3122,23 @@ export type TOpenIdDiscoveryConfig = z.infer<typeof openIdDiscoverySchema>;
 /** Maximum CAS attempts per ACL document, including the initial attempt. */
 export const permissionWriteAttemptsSchema = z.number().int().min(1).max(100).default(3);
 
+
+/** SimpleAI: model specs grouped in tiers, from the lowest to the highest, that a failing model falls back to. */
+export const modelFallbackSchema = z.object({
+  tiers: z.array(z.array(z.string()).min(1)).min(1),
+});
+
+export type TModelFallbackConfig = z.infer<typeof modelFallbackSchema>;
+
+/** SimpleAI: stored on a response message when fallback models answered instead of `from`. */
+export type TModelFallbackMeta = {
+  from: string;
+  to: string[];
+};
+
 export const configSchema = z.object({
   version: z.string(),
+  modelFallback: modelFallbackSchema.optional(),
   permissions: z.object({ maxWriteAttempts: permissionWriteAttemptsSchema }).optional(),
   cache: z.boolean().default(true),
   ocr: ocrSchema.optional(),

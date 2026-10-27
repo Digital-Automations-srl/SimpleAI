@@ -1,4 +1,5 @@
 import {
+  modelFallbackSchema,
   paramDefinitionSchema,
   agentsEndpointSchema,
   azureEndpointSchema,
@@ -1952,5 +1953,30 @@ describe('interfaceSchema agentSelectorLimit', () => {
     expect(normalizeAgentSelectorLimit(0)).toBe(10);
     expect(normalizeAgentSelectorLimit(101)).toBe(10);
     expect(normalizeAgentSelectorLimit('10')).toBe(10);
+  });
+});
+
+describe('modelFallbackSchema (SimpleAI)', () => {
+  it('requires the tiers', () => {
+    const result = configSchema.safeParse({ version: '1.0.0', modelFallback: {} });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['modelFallback', 'tiers']);
+  });
+
+  it('rejects no tiers and empty tiers', () => {
+    expect(modelFallbackSchema.safeParse({ tiers: [] }).success).toBe(false);
+    expect(modelFallbackSchema.safeParse({ tiers: [[]] }).success).toBe(false);
+  });
+
+  it('accepts tiers of spec names from the lowest to the highest', () => {
+    const modelFallback = {
+      tiers: [
+        ['haiku-5-5', 'gpt-6-mini'],
+        ['sonnet-5', 'gpt-6-luna'],
+      ],
+    };
+    expect(configSchema.parse({ version: '1.0.0', modelFallback }).modelFallback).toEqual(
+      modelFallback,
+    );
   });
 });

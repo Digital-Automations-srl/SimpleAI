@@ -2,7 +2,7 @@ import { useCallback, useMemo, memo } from 'react';
 import { useAtomValue } from 'jotai';
 import { useRecoilValue } from 'recoil';
 import { Constants } from 'librechat-data-provider';
-import type { TMessage, TMessageContentParts } from 'librechat-data-provider';
+import type { TMessage, TModelFallbackMeta, TMessageContentParts } from 'librechat-data-provider';
 import type { TMessageProps, TMessageIcon, TMessageChatContext } from '~/common';
 import {
   cn,
@@ -15,6 +15,7 @@ import { revealOnRowHoverClasses, messageFooterClasses } from '~/components/Chat
 import { useLocalize, useAttachments, useMessageActions, useContentMetadata } from '~/hooks';
 import ResumeAuthorHeader from '~/components/Chat/Messages/Content/Parts/ResumeAuthorHeader';
 import ToolCallLimitNotice from '~/components/Chat/Messages/Content/ToolCallLimitNotice';
+import ModelFallbackNote from '~/components/Chat/Messages/ModelFallbackNote';
 import { ErrorSourceProvider } from '~/components/Messages/Content/Error/source';
 import Elapsed, { shouldShowElapsed } from '~/components/Chat/Messages/Elapsed';
 import { getHeaderHoverLabel } from '~/components/Chat/Messages/ui/HeaderLabel';
@@ -257,6 +258,9 @@ const ContentRender = memo(function ContentRender({
         msg.finish_reason === Constants.TOOL_CALL_LIMIT_FINISH_REASON && (
           <ToolCallLimitNotice message={msg} />
         )}
+      {!isSubmitting && (
+        <ModelFallbackNote meta={msg.metadata?.modelFallback as TModelFallbackMeta | undefined} />
+      )}
     </MessageRow>
   );
 }, areContentRenderPropsEqual);

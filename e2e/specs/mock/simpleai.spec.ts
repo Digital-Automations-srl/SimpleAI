@@ -221,6 +221,44 @@ test.describe('SimpleAI automatic model', () => {
   });
 });
 
+test.describe('SimpleAI model fallback', () => {
+  const FALLBACK_NOTE = 'Answered by fallback-model: primary-model was temporarily unavailable.';
+
+  test('a response answered by a fallback model shows the note after reload', async ({ page }) => {
+    await openNewChat(page);
+    const label = uniqueName('fallback');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+    await expect(messagesView(page).getByText(FALLBACK_NOTE)).toHaveCount(0);
+
+    /** The fake model cannot hit a provider limit; the stored metadata is what the UI reads. */
+    await page.route(/\/api\/messages\/[^/?]+$/, async (route) => {
+      if (route.request().method() !== 'GET') {
+        return route.continue();
+      }
+      const response = await route.fetch();
+      const messages = (await response.json()) as Array<Record<string, unknown>>;
+      const withFallback = messages.map((message) =>
+        message.isCreatedByUser === true
+          ? message
+          : {
+              ...message,
+              metadata: {
+                ...(message.metadata as object | undefined),
+                modelFallback: { from: 'primary-model', to: ['fallback-model'] },
+              },
+            },
+      );
+      await route.fulfill({ response, json: withFallback });
+    });
+    await page.reload();
+
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+    await expect(messagesView(page).getByText(FALLBACK_NOTE)).toBeVisible();
+  });
+});
+
+
 test.describe('SimpleAI share page', () => {
   test('an unknown share id renders without crashing', async ({ page }) => {
     const pageErrors: string[] = [];

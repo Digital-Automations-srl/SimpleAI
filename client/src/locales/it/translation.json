@@ -1578,6 +1578,7 @@
   "com_ui_minimal": "Minimo",
   "com_ui_misc": "Varie",
   "com_ui_model": "Modello",
+  "com_ui_model_fallback_note": "Risposto con {{0}}: {{1}} era momentaneamente non disponibile.",
   "com_ui_model_parameters": "Parametri del Modello",
   "com_ui_model_parameters_reset": "I parametri del modello sono stati reimpostati.",
   "com_ui_model_selected": "{{0}} selezionato",

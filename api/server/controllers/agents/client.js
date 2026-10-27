@@ -184,6 +184,7 @@ const {
   isAgentRunCancellation,
   markCompactionOutcome,
   resolvePersistableCodeEnvironmentDecision,
+  getModelFallbackMeta,
 } = require('@librechat/api');
 const {
   Run,
@@ -3674,6 +3675,10 @@ class AgentClient extends BaseClient {
     const usage = aggregateEmittedUsage(usageEvents);
     if (usage) {
       metadata.usage = usage;
+    }
+    const modelFallback = getModelFallbackMeta(this.options?.agent);
+    if (modelFallback) {
+      metadata.modelFallback = modelFallback;
     }
     return Object.keys(metadata).length > 0 ? metadata : undefined;
   }

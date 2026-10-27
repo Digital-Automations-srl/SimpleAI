@@ -233,6 +233,16 @@ webSearch:
   safeSearch: 1
   scraperTimeout: 5000
 
+
+# Ripiego automatico: se un modello va in rate limit, sovraccarico o errore 5xx prima di
+# rispondere, la stessa richiesta passa a un altro modello della stessa fascia, poi di quelle
+# superiori. Fasce dalla più bassa alla più alta, con i `name` delle modelSpecs.
+modelFallback:
+  tiers:
+    - [haiku-4-5, gpt-5.4-mini]
+    - [sonnet-5, gpt-5.4]
+    - [opus-4-8, gpt-5.4-reasoning]
+
 modelSpecs:
   prioritize: true
   # enforce resta false: con modelSelect/presets/parameters attivi entrerebbe in conflitto

@@ -120,6 +120,7 @@ import { resolveTurnDeliveryRouting } from './files/delivery';
 import { filterFilesByEndpointRuntimeConfig } from '~/files';
 import { hasActiveFileFieldPolicy } from '~/protection';
 import { PARTIAL_RESOLVED_CONVERSATION } from './guard';
+import { applyModelFallbacks, attachModelFallbackGate } from '~/modelFallback';
 import { applyBackgroundToolCalls } from './background';
 import { applyTurnDelivery } from './files/delivery';
 import { generateArtifactsPrompt } from '~/prompts';
@@ -1362,6 +1363,56 @@ export async function initializeAgent(
     agent.provider = options.provider;
   }
 
+  const modelFallbackGate = await applyModelFallbacks({
+    llmConfig,
+    primary: {
+      endpoint: provider,
+      model: agent.model ?? '',
+      spec: (requestBody as { spec?: string } | undefined)?.spec,
+      maxContextTokens:
+        typeof agentMaxContextTokens === 'number' ? agentMaxContextTokens : undefined,
+    },
+    appConfig,
+    buildEntry: async (endpoint, modelParameters) => {
+      const fallbackProvider = getProviderConfig({ provider: endpoint, appConfig });
+      const fallbackOptions: InitializeResultBase = await fallbackProvider.getOptions({
+        runtime: { appConfig, user, requestBody: runtime.requestBody },
+        endpoint,
+        model_parameters: modelParameters,
+        db,
+      });
+      const fallbackLlmConfig = fallbackOptions.llmConfig as Record<string, unknown>;
+      const isAzureWithoutInstance =
+        endpoint === EModelEndpoint.azureOpenAI &&
+        fallbackLlmConfig.azureOpenAIApiInstanceName == null;
+      const fallbackRuntimeProvider =
+        fallbackOptions.provider ??
+        (isAzureWithoutInstance ? Providers.OPENAI : fallbackProvider.overrideProvider);
+      /** `createRun` sets these on the primary only; a custom endpoint reports usage like it. */
+      const isCustomEndpoint =
+        fallbackProvider.customEndpointConfig != null ||
+        (fallbackRuntimeProvider === Providers.OPENAI && endpoint !== Providers.OPENAI);
+      return {
+        provider: fallbackRuntimeProvider,
+        llmConfig: {
+          ...fallbackLlmConfig,
+          ...(fallbackOptions.configOptions
+            ? { configuration: fallbackOptions.configOptions }
+            : {}),
+          streaming: true,
+          ...(isCustomEndpoint ? { streamUsage: false, usage: true } : {}),
+        },
+        maxContextTokens: getModelMaxTokens(
+          String(modelParameters.model),
+          providerEndpointMap[
+            fallbackProvider.overrideProvider as keyof typeof providerEndpointMap
+          ],
+          fallbackOptions.endpointTokenConfig,
+        ),
+      };
+    },
+  });
+
   const deliveryRouting = resolveTurnDeliveryRouting({
     agent: {
       provider: agent.provider,
@@ -2546,6 +2597,10 @@ export async function initializeAgent(
     primedCodeFiles,
     endpointTokenConfig: options.endpointTokenConfig,
   };
+
+  if (modelFallbackGate != null) {
+    attachModelFallbackGate(initializedAgent, modelFallbackGate);
+  }
 
   return initializedAgent;
 }

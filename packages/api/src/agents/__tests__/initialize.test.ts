@@ -35,6 +35,7 @@ jest.mock('@librechat/agents', () => ({
 import { Providers } from '@librechat/agents';
 import { createHash } from 'node:crypto';
 import { createRepositoryInstructionLoader } from '../../code/instructions';
+import { getModelFallbackGate } from '../../modelFallback';
 import {
   Tools,
   Constants,
@@ -5105,5 +5106,129 @@ describe('initializeAgent turn delivery routing', () => {
     const [toolsOrder] = loadTools.mock.invocationCallOrder;
     expect(optionsOrder).toBeLessThan(filesOrder);
     expect(filesOrder).toBeLessThan(toolsOrder);
+  });
+});
+
+describe('initializeAgent — model fallback (SimpleAI)', () => {
+  const modelSpecs = {
+    list: [
+      {
+        name: 'primary',
+        label: 'Primary',
+        preset: { endpoint: Providers.OPENAI, model: 'test-model' },
+      },
+      {
+        name: 'sonnet-5',
+        label: 'Sonnet 5',
+        preset: { endpoint: 'anthropic', model: 'claude-sonnet-5' },
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  async function initialize(config: object, maxTokens?: (model: string) => number) {
+    const { agent, req, res, loadTools, db } = createMocks();
+    (req as unknown as { config: object }).config = config;
+    if (maxTokens) {
+      mockGetModelMaxTokens.mockImplementation(maxTokens);
+    }
+    mockGetProviderConfig.mockImplementation(({ provider }: { provider: string }) => ({
+      overrideProvider: provider === 'Regolo' ? Providers.OPENAI : provider,
+      getOptions: async ({ model_parameters }: { model_parameters: { model: string } }) => ({
+        llmConfig: { model: model_parameters.model, maxTokens: 4096 },
+        ...(provider === 'Regolo'
+          ? { configOptions: { baseURL: 'https://api.regolo.ai/v1' } }
+          : {}),
+      }),
+    }));
+    const result = await initializeAgent(
+      {
+        req,
+        res,
+        agent,
+        loadTools,
+        endpointOption: { endpoint: EModelEndpoint.agents },
+        allowedProviders: new Set([Providers.OPENAI]),
+        isInitialAgent: true,
+      },
+      db,
+    );
+    return { agent, result };
+  }
+
+  it('chains the other models of the tier and gates them', async () => {
+    const { result } = await initialize({
+      config: { modelFallback: { tiers: [['primary', 'sonnet-5']] } },
+      modelSpecs,
+    });
+
+    const { fallbacks, callbacks } = result.model_parameters as {
+      fallbacks?: Array<{
+        clientOptions: { model?: string; callbacks?: Array<{ name?: string }> };
+      }>;
+      callbacks?: Array<{ name?: string }>;
+    };
+    expect(fallbacks?.map((fallback) => fallback.clientOptions.model)).toEqual(['claude-sonnet-5']);
+    expect(fallbacks?.[0].clientOptions.callbacks?.slice(-1)[0]?.name).toBe(
+      'simpleai-model-fallback-entry',
+    );
+    expect(callbacks?.slice(-1)[0]?.name).toBe('simpleai-model-fallback-primary');
+    expect(getModelFallbackGate(result)).toBeDefined();
+  });
+
+  it('streams a fallback and counts the usage of a custom endpoint like the primary', async () => {
+    const { result } = await initialize({
+      config: { modelFallback: { tiers: [['primary', 'regolo']] } },
+      modelSpecs: {
+        list: [
+          ...modelSpecs.list,
+          {
+            name: 'regolo',
+            preset: { endpoint: 'Regolo', model: 'llama-4', endpointType: 'custom' },
+          },
+        ],
+      },
+    });
+
+    const { fallbacks } = result.model_parameters as {
+      fallbacks?: Array<{ provider: string; clientOptions: Record<string, unknown> }>;
+    };
+    expect(fallbacks?.[0].clientOptions).toMatchObject({
+      streaming: true,
+      streamUsage: false,
+      usage: true,
+      configuration: { baseURL: 'https://api.regolo.ai/v1' },
+    });
+  });
+
+  it('skips a fallback whose context window is smaller than the primary one', async () => {
+    const { result } = await initialize(
+      {
+        config: { modelFallback: { tiers: [['primary', 'haiku', 'sonnet-5']] } },
+        modelSpecs: {
+          list: [
+            ...modelSpecs.list,
+            { name: 'haiku', preset: { endpoint: 'anthropic', model: 'claude-haiku-4-5' } },
+          ],
+        },
+      },
+      (model) => (model === 'claude-haiku-4-5' ? 100000 : 200000),
+    );
+
+    const { fallbacks } = result.model_parameters as {
+      fallbacks?: Array<{ clientOptions: { model?: string } }>;
+    };
+    expect(fallbacks?.map((fallback) => fallback.clientOptions.model)).toEqual(['claude-sonnet-5']);
+  });
+
+  it('leaves the model untouched without the configuration', async () => {
+    const { result } = await initialize({ modelSpecs });
+
+    expect(result.model_parameters).not.toHaveProperty('fallbacks');
+    expect(result.model_parameters).not.toHaveProperty('callbacks');
+    expect(getModelFallbackGate(result)).toBeUndefined();
   });
 });

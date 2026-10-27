@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, memo } from 'react';
 import { useRecoilValue } from 'recoil';
-import type { TMessage } from 'librechat-data-provider';
+import type { TMessage, TModelFallbackMeta } from 'librechat-data-provider';
 import type { TMessageProps, TMessageIcon, TMessageChatContext } from '~/common';
 import {
   cn,
@@ -14,6 +14,7 @@ import { parseWakeupText } from '~/components/Chat/Messages/Content/Parts/wakeup
 import Elapsed, { shouldShowElapsed } from '~/components/Chat/Messages/Elapsed';
 import { getHeaderHoverLabel } from '~/components/Chat/Messages/ui/HeaderLabel';
 import MessageContent from '~/components/Chat/Messages/Content/MessageContent';
+import ModelFallbackNote from '~/components/Chat/Messages/ModelFallbackNote';
 import { useLocalize, useMessageActions, useContentMetadata } from '~/hooks';
 import SiblingSwitch from '~/components/Chat/Messages/SiblingSwitch';
 import HoverButtons from '~/components/Chat/Messages/HoverButtons';
@@ -244,6 +245,9 @@ const MessageRender = memo(function MessageRender({
           />
         )}
       </MessageContext.Provider>
+      {!isSubmitting && (
+        <ModelFallbackNote meta={msg.metadata?.modelFallback as TModelFallbackMeta | undefined} />
+      )}
     </MessageRow>
   );
 }, areMessageRenderPropsEqual);

@@ -10471,3 +10471,27 @@ describe('seedContextMeta', () => {
     expect(client.contextMeta).toBeUndefined();
   });
 });
+
+describe('AgentClient.buildResponseMetadata model fallback (SimpleAI)', () => {
+  const { attachModelFallbackGate, createModelFallbackGate } = jest.requireActual('@librechat/api');
+
+  it('records the fallback models that answered', () => {
+    const agent = { model: 'gpt-6-luna' };
+    const gate = createModelFallbackGate();
+    attachModelFallbackGate(agent, gate);
+    gate.fallbackCallback('claude-sonnet-5').handleLLMEnd();
+    const client = Object.create(AgentClient.prototype);
+    client.options = { agent };
+
+    expect(client.buildResponseMetadata()).toMatchObject({
+      modelFallback: { from: 'gpt-6-luna', to: ['claude-sonnet-5'] },
+    });
+  });
+
+  it('records no fallback when the model answered itself', () => {
+    const client = Object.create(AgentClient.prototype);
+    client.options = { agent: { model: 'gpt-6-luna' } };
+
+    expect(client.buildResponseMetadata()?.modelFallback).toBeUndefined();
+  });
+});
