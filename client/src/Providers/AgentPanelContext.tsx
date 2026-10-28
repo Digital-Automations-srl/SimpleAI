@@ -62,8 +62,10 @@ export function AgentPanelProvider({
   const { availableMCPServers, isLoading, availableMCPServersMap, connectionStatus } =
     useMCPServerManager({ observeToolAuthorization: observeVisibleToolAuthorization });
   const { data: startupConfig } = useGetStartupConfig();
+  /** Actions belong to the agent being edited, not to the open chat: gating them
+   * on the chat's agent left the Actions list empty when editing from a model chat. */
   const { data: actions } = useGetActionsQuery(EModelEndpoint.agents, {
-    enabled: observeToolAuthorization,
+    enabled: panelVisible,
   });
 
   const { data: regularTools } = useAvailableToolsQuery(EModelEndpoint.agents);

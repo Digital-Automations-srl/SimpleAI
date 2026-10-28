@@ -3,9 +3,11 @@ import type { Locator, Page } from '@playwright/test';
 import {
   MOCK_ENDPOINTS,
   NEW_CHAT_PATH,
+  getAccessToken,
   messagesView,
   replyPrompt,
   replyText,
+  requestJson,
   selectMockEndpoint,
   sendMessage,
   sendMessageAndWaitForCompletion,
@@ -559,6 +561,57 @@ test.describe('SimpleAI agent builder', () => {
     await page.getByTestId('new-chat-button').click();
     const response = await sendMessage(page, replyPrompt(label));
     expect(response.request().postDataJSON().isTemporary).toBe(false);
+  });
+
+  test("an agent's actions are listed when editing it from a model chat", async ({ page }) => {
+    await openNewChat(page);
+    await selectMockEndpoint(page, MOCK_ENDPOINTS[0]);
+    const token = await getAccessToken(page);
+    const agentName = uniqueName('E2E Action Agent');
+    const agent = await requestJson<AgentDetail>(page, {
+      path: '/api/agents',
+      token,
+      method: 'POST',
+      body: {
+        name: agentName,
+        provider: MOCK_ENDPOINTS[0].label,
+        model: MOCK_ENDPOINTS[0].model,
+      },
+    });
+    try {
+      await requestJson(page, {
+        path: `/api/agents/actions/${encodeURIComponent(agent.id)}`,
+        token,
+        method: 'POST',
+        body: {
+          functions: [
+            {
+              type: 'function',
+              function: {
+                name: 'e2e_lookup',
+                description: 'Return a deterministic lookup result.',
+                parameters: { type: 'object', properties: {} },
+              },
+            },
+          ],
+          metadata: { domain: 'https://example.com' },
+        },
+      });
+
+      const form = await openAgentBuilder(page);
+      await form.getByRole('combobox', { name: 'Agent', exact: true }).click();
+      await page.getByRole('option', { name: agentName, exact: true }).click();
+      await expect(form.getByLabel('Agent name')).toHaveValue(agentName);
+
+      await form.getByRole('button', { name: 'Add tools' }).click();
+      const library = page.getByRole('dialog', { name: 'Tool Library' });
+      const actionsFilter = library.getByRole('button', { name: /^Actions/ });
+      await expect(actionsFilter).toContainText('1');
+      await actionsFilter.click();
+      await expect(library.getByText('https://example.com')).toBeVisible();
+    } finally {
+      await cleanupAgent(page, agent.id);
+    }
   });
 });
 
