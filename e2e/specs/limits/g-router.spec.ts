@@ -15,6 +15,10 @@ const JEV_PORT = process.env.E2E_JEV_PORT || '8793';
 
 test.describe.configure({ timeout: 60_000 });
 
+test.beforeEach(async () => {
+  await withMongo((db) => db.collection('routerdecisions').deleteMany({}));
+});
+
 test.afterEach(async () => {
   await resetFakes();
 });
@@ -38,10 +42,19 @@ async function selectAutomatico(page: Page) {
   await expect(page.getByTestId('model-selector-button')).toContainText('E2E Automatico');
 }
 
-async function lastDecision(conversationFilter: Record<string, unknown> = {}) {
-  return withMongo((db) =>
-    db.collection('routerdecisions').findOne(conversationFilter, { sort: { _id: -1 } }),
-  );
+/** A new conversation has no stored id when the decision is written, so the collection is
+ *  cleared before each test and the decision is polled (it is inserted on response close). */
+async function waitForDecision() {
+  let decision: Record<string, unknown> | null = null;
+  await expect
+    .poll(async () => {
+      decision = await withMongo((db) =>
+        db.collection('routerdecisions').findOne({}, { sort: { _id: -1 } }),
+      );
+      return decision !== null;
+    })
+    .toBe(true);
+  return decision as unknown as Record<string, unknown>;
 }
 
 for (const mode of ['error', 'slow'] as const) {
@@ -59,9 +72,14 @@ for (const mode of ['error', 'slow'] as const) {
     expect(Date.now() - started).toBeLessThan(10_000);
 
     expect(await jevRequestCount()).toBeGreaterThanOrEqual(1);
-    const decision = await lastDecision();
-    expect(decision?.spec).toBe('e2e-mock-provider-b');
-    expect(decision?.fallbackReason).toBe('request_failed');
+    const decision = await waitForDecision();
+    expect(decision.spec).toBe('e2e-mock-provider-b');
+    expect(decision.fallbackReason).toBe('request_failed');
+    if (mode === 'slow') {
+      expect(decision.latencyMs as number).toBeGreaterThanOrEqual(900);
+    } else {
+      expect(decision.latencyMs as number).toBeLessThan(800);
+    }
     await expectNotBroken(page, errors);
   });
 }
@@ -76,8 +94,8 @@ test('G1 · router ok → la richiesta passa dal router', async ({ page }) => {
   await expect(messagesView(page).getByText(replyText(label))).toBeVisible({ timeout: 10_000 });
 
   expect(await jevRequestCount()).toBeGreaterThanOrEqual(1);
-  const decision = await lastDecision();
-  expect(decision?.spec).toBe('e2e-mock-provider-a');
-  expect(decision?.fallbackReason).toBeUndefined();
+  const decision = await waitForDecision();
+  expect(decision.spec).toBe('e2e-mock-provider-a');
+  expect(decision.fallbackReason).toBeUndefined();
   await expectNotBroken(page, errors);
 });
