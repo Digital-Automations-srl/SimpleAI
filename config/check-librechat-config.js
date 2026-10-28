@@ -65,6 +65,7 @@ function checkTitleModels(endpoints, env, problems) {
 
   const google = endpoints.google;
   if (google) {
+    // Senza GOOGLE_MODELS l'elenco modelli non è noto: non verificabile, nessun problema emesso.
     check('google', google.titleModel, envModels(env, 'GOOGLE_MODELS'));
   }
 
@@ -74,25 +75,20 @@ function checkTitleModels(endpoints, env, problems) {
 }
 
 /**
- * Il pulsante di sintesi vocale è acceso di default (speechTab.textToSpeech, lato client) ma col
- * motore `browser`, che non richiede nulla sul server. Serve `speech.tts` solo se il motore
- * (speechTab.textToSpeech.engineTTS) è un provider esterno.
+ * `engineTTS` è un'impostazione per-utente del client (localStorage, selezionabile dalle
+ * impostazioni vocali), quindi il TTS server è raggiungibile dagli utenti a prescindere dal yaml.
+ * Nessuna chiave del yaml lo impedisce: `speechTab.textToSpeech: false` è solo un default che
+ * il localStorage dell'utente scavalca, e il client ripiega su `browser` solo quando
+ * `speech.tts` manca. Senza un provider in `speech.tts` ogni richiesta TTS logga
+ * "No TTS schema is set": si segnala quindi sempre.
  */
 function checkTts(cfg, problems) {
-  const tts = cfg.speech?.speechTab?.textToSpeech;
-  if (tts == null || typeof tts !== 'object') {
-    return;
-  }
-  const engine = tts.engineTTS;
-  if (!engine || engine === 'browser') {
-    return;
-  }
   const configured = Object.entries(cfg.speech?.tts ?? {}).filter(
     ([k, v]) => k !== 'allowedAddresses' && v && typeof v === 'object' && Object.keys(v).length > 0,
   );
-  if (engine === 'external' ? configured.length === 0 : !configured.some(([k]) => k === engine)) {
+  if (configured.length === 0) {
     problems.push(
-      `speech: sintesi vocale con motore "${engine}" ma nessuna configurazione in speech.tts`,
+      'speech: speech.tts non configurato ma il TTS server è raggiungibile dagli utenti (motore esterno selezionabile)',
     );
   }
 }

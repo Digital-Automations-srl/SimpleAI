@@ -32,3 +32,10 @@ modelSpecs:
           auto-sonnet: y
     - name: auto-haiku
     - name: auto-sonnet
+speech:
+  tts:
+    openai:
+      url: https://example.invalid/v1
+      apiKey: x
+      model: tts-1
+      voices: [alloy]

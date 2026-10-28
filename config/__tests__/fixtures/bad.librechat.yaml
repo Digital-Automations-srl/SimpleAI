@@ -26,7 +26,3 @@ modelSpecs:
           auto-haiku: x
           auto-phantom: y
     - name: auto-haiku
-speech:
-  speechTab:
-    textToSpeech:
-      engineTTS: external

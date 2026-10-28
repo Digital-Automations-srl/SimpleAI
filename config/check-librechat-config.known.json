@@ -6,5 +6,9 @@
   {
     "problem": "endpoint anthropic: titleModel \"claude-haiku-4-5\" non è tra i modelli dell'endpoint",
     "ref": "design §8 — titleModel Anthropic claude-haiku-4-5 (Vertex espone claude-haiku-5-5)"
+  },
+  {
+    "problem": "speech: speech.tts non configurato ma il TTS server è raggiungibile dagli utenti (motore esterno selezionabile)",
+    "ref": "design §8 — TTS non configurato ma pulsante audio attivo"
   }
 ]

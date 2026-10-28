@@ -41,12 +41,41 @@ describe('checkLibrechatConfig', () => {
     ).toBe(true);
   });
 
-  it('segnala TTS attivo senza configurazione', () => {
-    expect(checkLibrechatConfig(bad).some((x) => x.includes('speech: sintesi vocale'))).toBe(true);
+  it('segnala speech.tts assente anche senza impostazioni speech', () => {
+    expect(checkLibrechatConfig(bad).some((x) => x.includes('speech.tts non configurato'))).toBe(
+      true,
+    );
   });
 
-  it('TTS con motore browser (default) non richiede configurazione', () => {
-    const y = `${ok}\nspeech:\n  speechTab:\n    textToSpeech: true\n`;
+  it('segnala speech.tts senza provider utilizzabile', () => {
+    const y = `${bad}
+speech:
+  tts:
+    openai: {}
+    allowedAddresses: ['localhost:8020']
+`;
+    expect(checkLibrechatConfig(y).some((x) => x.includes('speech.tts non configurato'))).toBe(
+      true,
+    );
+  });
+
+  it('speechTab.textToSpeech: false non disattiva il TTS server (solo un default)', () => {
+    const y = `${bad}
+speech:
+  speechTab:
+    textToSpeech: false
+`;
+    expect(checkLibrechatConfig(y).some((x) => x.includes('speech.tts non configurato'))).toBe(
+      true,
+    );
+  });
+
+  it('speech.tts con un provider configurato è ok', () => {
+    expect(checkLibrechatConfig(ok).some((x) => x.startsWith('speech:'))).toBe(false);
+  });
+
+  it('titleModel Google senza GOOGLE_MODELS non è verificabile: nessun problema', () => {
+    const y = ok.replace('endpoints:\n', 'endpoints:\n  google:\n    titleModel: gemini-x\n');
     expect(checkLibrechatConfig(y)).toEqual([]);
   });
 });
