@@ -1,6 +1,16 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "entries": [
+    {
+      "version": "2.2.0",
+      "date": "2026-10-26",
+      "title": "Crea agenti descrivendoli",
+      "changes": [
+        "Nel pannello agenti c'è la nuova scheda Crea: descrivi a parole cosa deve fare l'agente e Simple AI imposta nome, istruzioni, categoria, modello e strumenti",
+        "Puoi chiedere modifiche in conversazione (\"più formale\", \"aggiungi la ricerca web\") e vedere tutto nella scheda Configura prima di salvare",
+        "Con \"Prova l'agente\" lo provi in una chat temporanea prima di crearlo: niente viene salvato"
+      ]
+    },
     {
       "version": "2.1.0",
       "date": "2026-10-23",
