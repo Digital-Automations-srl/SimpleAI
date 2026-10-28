@@ -1,0 +1,8 @@
+# Applied on top of librechat.e2e.yaml only when E2E_LIMITS=true (see writeRuntimeMockConfig).
+modelSpecs:
+  list:
+    - name: 'e2e-limits-small-context'
+      label: 'E2E Limits Small Context'
+      preset:
+        endpoint: 'Mock Provider A'
+        model: 'mock-model-a'

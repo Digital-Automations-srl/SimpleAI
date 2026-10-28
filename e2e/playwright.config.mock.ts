@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import yaml from 'js-yaml';
 import { getLocalE2EEnv, getE2EBaseURL } from './setup/env';
 import { managementAuth } from './setup/agent-management';
 
@@ -103,6 +104,10 @@ const configTemplatePath = path.resolve(rootPath, 'e2e/config/librechat.e2e.yaml
 const configPath = path.resolve(rootPath, 'e2e/.generated/librechat.e2e.yaml');
 const reportPath = path.resolve(rootPath, 'e2e/playwright-report');
 const deploymentSkillsPath = path.resolve(rootPath, 'e2e/fixtures/deployment-skills');
+const limitsOverlayPath = path.resolve(rootPath, 'e2e/config/librechat.limits.overlay.yaml');
+const enableLimitsOverlay = process.env.E2E_LIMITS === 'true';
+const ACTION_PORT = process.env.E2E_ACTION_PORT || '8792';
+const JEV_PORT = process.env.E2E_JEV_PORT || '8793';
 const enableDynamicMcp = process.env.E2E_MCP_LIST_CHANGED === 'true';
 
 const baseURL = getE2EBaseURL();
@@ -186,6 +191,36 @@ const preservedCredentialEnvKeys = new Set([
  * the graph override and calls the endpoint's resolved client options, so that
  * request does go out over HTTP — to `fake-label-server.js` on 127.0.0.1.
  */
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Deep merge: objects merge key by key; arrays of `name`-keyed objects merge by name
+ *  (matching item deep-merged, others appended); any other array or scalar is replaced. */
+function mergeOverlay(base: unknown, overlay: unknown): unknown {
+  if (isPlainObject(base) && isPlainObject(overlay)) {
+    const merged: Record<string, unknown> = { ...base };
+    for (const [key, value] of Object.entries(overlay)) {
+      merged[key] = key in base ? mergeOverlay(base[key], value) : value;
+    }
+    return merged;
+  }
+  const byName = (items: unknown[]) =>
+    items.every((item) => isPlainObject(item) && typeof item.name === 'string');
+  if (Array.isArray(base) && Array.isArray(overlay) && byName(base) && byName(overlay)) {
+    const merged = [...base] as Array<Record<string, unknown>>;
+    for (const item of overlay as Array<Record<string, unknown>>) {
+      const index = merged.findIndex((existing) => existing.name === item.name);
+      if (index === -1) {
+        merged.push(item);
+      } else {
+        merged[index] = mergeOverlay(merged[index], item) as Record<string, unknown>;
+      }
+    }
+    return merged;
+  }
+  return overlay;
+}
+
 function writeRuntimeMockConfig() {
   const template = fs.readFileSync(configTemplatePath, 'utf8');
   let config =
@@ -278,6 +313,16 @@ function writeRuntimeMockConfig() {
         ].join('\n    ')
       : '# __E2E_CODE_BRIDGE_CONFIG__',
   );
+  if (enableLimitsOverlay) {
+    const overlay = yaml.load(fs.readFileSync(limitsOverlayPath, 'utf8'));
+    config = yaml.dump(mergeOverlay(yaml.load(config), overlay), { lineWidth: -1 });
+    if (ACTION_PORT !== '8792') {
+      config = config.split('127.0.0.1:8792').join(`127.0.0.1:${ACTION_PORT}`);
+    }
+    if (JEV_PORT !== '8793') {
+      config = config.split('127.0.0.1:8793').join(`127.0.0.1:${JEV_PORT}`);
+    }
+  }
   /** Keep the generated config in lockstep with the overridable label-server
    *  port: the template hard-codes 8889, so an `E2E_LABEL_PORT` override that
    *  moved only the server and its health check would report ready while
