@@ -29,3 +29,17 @@ summarization:
   model: 'mock-model-a'
   retainRecent:
     turns: 1
+
+# F2/F4: the fake action server is on loopback, so it needs both the domain allowlist
+# (plain arrays are replaced by the merge: keep the base entry) and the SSRF exemption.
+# The Action editor saves `metadata.domain` as protocol + hostname (port dropped), so the
+# portless 127.0.0.1 / 127.0.0.1:80 entries are what let a schema edited in the UI be saved;
+# the 8792 entries cover the Actions created through the API with the port.
+actions:
+  allowedDomains:
+    - example.com
+    - 127.0.0.1
+    - 127.0.0.1:8792
+  allowedAddresses:
+    - 127.0.0.1:80
+    - 127.0.0.1:8792

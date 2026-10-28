@@ -49,6 +49,7 @@ const EMPTY_SLOW_REPLY_MARKER = 'E2E_EMPTY_SLOW_REPLY:';
 const EMPTY_REPLY_MARKER = 'E2E_EMPTY_REPLY:';
 const SLOW_COUNTED_REPLY_MARKER = 'E2E_SLOW_COUNTED_REPLY:';
 const STEER_TOOL_REPLY_MARKER = 'E2E_STEER_TOOL_REPLY:';
+const ACTION_CALL_MARKER = 'E2E_ACTION_CALL:';
 const STEER_SPLIT_REPLY_MARKER = 'E2E_STEER_SPLIT_REPLY:';
 const STEER_LATE_REPLY_MARKER = 'E2E_STEER_LATE_REPLY:';
 const ACTIVITY_REPLY_MARKER = 'E2E_ACTIVITY_REPLY:';
@@ -1293,6 +1294,32 @@ function fileAuthoringResponses(operation, toolNames) {
  * streams a slow preamble then calls the advertised `remember_fact` MCP tool
  * (steers drain at the PostToolBatch boundary), turn 2 streams the final text.
  */
+/** F4: calls the agent's Action tool `<operationId>_action_*`, then closes with a fixed text. */
+function actionCallResponses(operationId, toolNames) {
+  const toolName = Array.from(toolNames).find((name) => name.startsWith(`${operationId}_action_`));
+  if (!toolName) {
+    return {
+      responses: [`E2E action call unavailable: no ${operationId}_action_ tool advertised.`],
+    };
+  }
+  let invocation = 0;
+  return {
+    responses: [''],
+    resolveInvocation: async () => {
+      invocation += 1;
+      if (invocation === 1) {
+        return {
+          response: '',
+          toolCalls: [
+            { id: `call_e2e_action_${operationId}`, name: toolName, args: {}, type: 'tool_call' },
+          ],
+        };
+      }
+      return { response: `E2E action done ${operationId}` };
+    },
+  };
+}
+
 function steerToolReplyResponses(label, toolNames) {
   const toolName = Array.from(toolNames).find((name) => name.startsWith(STEER_TOOL_NAME_PREFIX));
   if (!toolName) {
@@ -3184,6 +3211,11 @@ function resolveResponses({ graph, messages, text, toolNames }) {
   const statefulCodeOperation = getMarkerValue(text, STATEFUL_CODE_MARKER);
   if (statefulCodeOperation) {
     return statefulCodeResponses(statefulCodeOperation, toolNames);
+  }
+
+  const actionCallOperation = getMarkerValue(text, ACTION_CALL_MARKER);
+  if (actionCallOperation) {
+    return actionCallResponses(actionCallOperation, toolNames);
   }
 
   const steerToolLabel = getMarkerValue(text, STEER_TOOL_REPLY_MARKER);
