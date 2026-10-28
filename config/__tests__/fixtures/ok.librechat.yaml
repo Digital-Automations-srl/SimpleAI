@@ -1,0 +1,34 @@
+endpoints:
+  azureOpenAI:
+    titleModel: gpt-6-luna
+    groups:
+      - group: Default
+        models:
+          gpt-6-luna:
+            deploymentName: gpt-6-luna
+  anthropic:
+    titleModel: claude-haiku-5-5
+    vertex:
+      models:
+        claude-haiku-5-5:
+          deploymentName: claude-haiku-5-5
+  custom:
+    - name: GLM
+      titleModel: current_model
+      models:
+        default: [glm5.2]
+agentBuilder:
+  spec: auto-sonnet
+modelFallback:
+  tiers:
+    - [auto-haiku, auto-sonnet]
+modelSpecs:
+  list:
+    - name: auto
+      router:
+        fallback: auto-sonnet
+        candidates:
+          auto-haiku: x
+          auto-sonnet: y
+    - name: auto-haiku
+    - name: auto-sonnet

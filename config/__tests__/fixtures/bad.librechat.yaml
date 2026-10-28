@@ -1,0 +1,32 @@
+endpoints:
+  azureOpenAI:
+    titleModel: gpt-5
+    groups:
+      - group: Default
+        models:
+          gpt-6-luna:
+            deploymentName: gpt-6-luna
+  anthropic:
+    titleModel: claude-haiku-4-5
+    vertex:
+      models:
+        claude-haiku-5-5:
+          deploymentName: claude-haiku-5-5
+agentBuilder:
+  spec: auto-missing
+modelFallback:
+  tiers:
+    - [auto-haiku, auto-ghost]
+modelSpecs:
+  list:
+    - name: auto
+      router:
+        fallback: auto-nope
+        candidates:
+          auto-haiku: x
+          auto-phantom: y
+    - name: auto-haiku
+speech:
+  speechTab:
+    textToSpeech:
+      engineTTS: external

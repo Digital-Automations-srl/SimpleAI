@@ -1,0 +1,10 @@
+[
+  {
+    "problem": "endpoint azureOpenAI: titleModel \"gpt-5\" non è tra i modelli dell'endpoint",
+    "ref": "design §8 — titleModel Azure gpt-5"
+  },
+  {
+    "problem": "endpoint anthropic: titleModel \"claude-haiku-4-5\" non è tra i modelli dell'endpoint",
+    "ref": "design §8 — titleModel Anthropic claude-haiku-4-5 (Vertex espone claude-haiku-5-5)"
+  }
+]
