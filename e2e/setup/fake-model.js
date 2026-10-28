@@ -61,6 +61,8 @@ const AGENT_BUILDER_MARKER = 'E2E_AGENT_BUILDER:';
 const AGENT_BUILDER_TOOL_NAME = 'configure_agent';
 const RESUME_ICON_REPLY_MARKER = 'E2E_RESUME_ICON_REPLY:';
 const FORCED_ERROR_MARKER = 'E2E_FORCED_ERROR:';
+/** `E2E_STATUS_ERROR:<status>:<label>`: throws an Error carrying `status` before the first token. */
+const STATUS_ERROR_MARKER = 'E2E_STATUS_ERROR:';
 const MARKDOWN_REPLY_MARKER = 'E2E_MARKDOWN_REPLY';
 const STREAMING_MARKDOWN_REPLY_MARKER = 'E2E_STREAMING_MARKDOWN_REPLY';
 const HIGHLIGHT_CODE_MARKER = 'E2E_HIGHLIGHT_CODE:';
@@ -619,6 +621,17 @@ function replyResponses(text) {
     };
   }
 
+  const statusError = getMarkerValue(text, STATUS_ERROR_MARKER);
+  if (statusError) {
+    const [status, ...labelParts] = statusError.split(':');
+    const label = labelParts.join(':');
+    return {
+      responses: [''],
+      thrownError: `E2E status error ${status} ${label}`,
+      thrownErrorStatus: Number(status),
+    };
+  }
+
   const replyName = getMarkerValue(text, REPLY_MARKER);
   if (replyName) {
     return {
@@ -887,12 +900,25 @@ class UsageEmittingFakeChatModel extends FakeChatModel {
   }
 }
 
+/**
+ * The fake model replaces the primary's client, so the fallback gate's primary callback (installed
+ * on the real client options) would never see the failure. Carrying it over keeps the gate's
+ * eligibility rules (status, tokens already emitted) in force exactly as with a real provider.
+ */
+function withFallbackGateCallback(graph, modelCallbacks) {
+  const gate = [...graph.agentContexts.values()]
+    .flatMap((agentContext) => agentContext.clientOptions?.callbacks ?? [])
+    .filter((callback) => callback?.name === 'simpleai-model-fallback-primary');
+  return gate.length > 0 ? [...(modelCallbacks ?? []), ...gate] : modelCallbacks;
+}
+
 function overrideModel({
   graph,
   responses,
   sleep,
   toolCalls,
   thrownError,
+  thrownErrorStatus,
   overrideSubagentModel,
   disableHumanInTheLoop,
   resolveInvocation,
@@ -940,6 +966,10 @@ function overrideModel({
 
   class ThrowingFakeChatModel extends FakeChatModel {
     async *_streamResponseChunks(messages, options, runManager) {
+      if (thrownErrorStatus != null) {
+        /** Provider-style failure (HTTP status) before any token, so no prelude is emitted. */
+        throw Object.assign(new Error(thrownError), { status: thrownErrorStatus });
+      }
       yield* super._streamResponseChunks(
         messages,
         { ...options, thrownErrorString: thrownError },
@@ -3328,6 +3358,7 @@ module.exports = function fakeModelHook(run, context) {
     sleep,
     toolCalls,
     thrownError,
+    thrownErrorStatus,
     overrideSubagentModel,
     disableHumanInTheLoop,
     resolveInvocation,
@@ -3346,6 +3377,7 @@ module.exports = function fakeModelHook(run, context) {
     sleep,
     toolCalls,
     thrownError,
+    thrownErrorStatus,
     overrideSubagentModel:
       overrideSubagentModel || runFileLifecycle.isFixtureAgents(context?.agents),
     disableHumanInTheLoop,
@@ -3363,6 +3395,6 @@ module.exports = function fakeModelHook(run, context) {
       approvalOutcomeResponses(streamMessages) ??
       resolveOnStream?.(streamMessages, streamOptions, runManager) ??
       null,
-    modelCallbacks: context?.modelCallbacks,
+    modelCallbacks: withFallbackGateCallback(graph, context?.modelCallbacks),
   });
 };

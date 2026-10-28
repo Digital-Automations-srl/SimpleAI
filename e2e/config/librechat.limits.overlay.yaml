@@ -1,6 +1,18 @@
 # Applied on top of librechat.e2e.yaml only when E2E_LIMITS=true (see writeRuntimeMockConfig).
+# modelFallback builds each fallback from its spec preset: a spec on a custom endpoint needs
+# `endpointType: custom`, otherwise the fallback is silently skipped ("Unknown endpoint").
+modelFallback:
+  tiers:
+    - [e2e-mock-provider-a, e2e-mock-provider-b]
+
 modelSpecs:
   list:
+    - name: 'e2e-mock-provider-a'
+      preset:
+        endpointType: 'custom'
+    - name: 'e2e-mock-provider-b'
+      preset:
+        endpointType: 'custom'
     - name: 'e2e-limits-small-context'
       label: 'E2E Limits Small Context'
       preset:

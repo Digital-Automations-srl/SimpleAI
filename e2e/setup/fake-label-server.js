@@ -28,7 +28,12 @@ const DEFAULT_BEHAVIOR = {
   phaseLabel: null,
   labelsByPrompt: {},
   delayMs: 0,
+  /** Chat (fallback provider) requests: 'ok' answers CHAT_REPLY, 'error' answers HTTP 503. */
+  chatMode: 'ok',
 };
+const CHAT_REPLY = 'E2E fallback reply';
+/** The fallback provider receives the user's turn, so the status marker identifies a chat call. */
+const CHAT_PROMPT_MARKER = 'E2E_STATUS_ERROR:';
 let behavior = { ...DEFAULT_BEHAVIOR };
 let labelCount = 0;
 
@@ -159,6 +164,16 @@ const server = http.createServer(async (req, res) => {
 
     if (behavior.delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, behavior.delayMs));
+    }
+
+    /** A model-fallback chat call (streamed, carries the user's marker), not an activity label. */
+    if (body.stream === true && prompt.includes(CHAT_PROMPT_MARKER)) {
+      if (behavior.chatMode === 'error') {
+        sendJson(res, 503, { error: { message: 'E2E forced fallback failure' } });
+        return;
+      }
+      sendStream(res, body.model, CHAT_REPLY);
+      return;
     }
 
     /** Generation failure: the run must finish cleanly with no header. */
