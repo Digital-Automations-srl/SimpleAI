@@ -628,7 +628,8 @@ function replyResponses(text) {
     return {
       responses: [''],
       thrownError: `E2E status error ${status} ${label}`,
-      thrownErrorStatus: Number(status),
+      /** An empty status (`E2E_STATUS_ERROR::<label>`) throws a status-less error before any token. */
+      thrownErrorStatus: status === '' ? null : Number(status),
     };
   }
 
@@ -966,9 +967,12 @@ function overrideModel({
 
   class ThrowingFakeChatModel extends FakeChatModel {
     async *_streamResponseChunks(messages, options, runManager) {
-      if (thrownErrorStatus != null) {
-        /** Provider-style failure (HTTP status) before any token, so no prelude is emitted. */
-        throw Object.assign(new Error(thrownError), { status: thrownErrorStatus });
+      if (thrownErrorStatus !== undefined) {
+        /** Provider-style failure (HTTP status, or none when null) before any token, so no prelude is emitted. */
+        throw Object.assign(
+          new Error(thrownError),
+          thrownErrorStatus === null ? {} : { status: thrownErrorStatus },
+        );
       }
       yield* super._streamResponseChunks(
         messages,

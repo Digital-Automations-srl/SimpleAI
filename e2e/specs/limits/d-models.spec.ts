@@ -49,9 +49,10 @@ test('D1 · 529 overloaded → stesso esito', async ({ page }) => {
 test('D1 · un errore senza status non ripiega', async ({ page }) => {
   const errors = trackPageErrors(page);
   await openProviderA(page);
-  await sendMessage(page, 'E2E_FORCED_ERROR:d1-plain');
+  await sendMessage(page, 'E2E_STATUS_ERROR::d1-plain');
   await expect(messagesView(page).getByText(PROVIDER_ERROR)).toBeVisible({ timeout: 30_000 });
   await expect(messagesView(page).getByText(FALLBACK_REPLY)).toHaveCount(0);
+  await expect(messagesView(page).getByText(FALLBACK_NOTE)).toHaveCount(0);
   await expectNotBroken(page, errors);
 });
 
