@@ -1289,11 +1289,6 @@ function fileAuthoringResponses(operation, toolNames) {
   };
 }
 
-/**
- * Slow two-turn run with a real MCP tool boundary for the steering e2e: turn 1
- * streams a slow preamble then calls the advertised `remember_fact` MCP tool
- * (steers drain at the PostToolBatch boundary), turn 2 streams the final text.
- */
 /** F4: calls the agent's Action tool `<operationId>_action_*`, then closes with a fixed text. */
 function actionCallResponses(operationId, toolNames) {
   const toolName = Array.from(toolNames).find((name) => name.startsWith(`${operationId}_action_`));
@@ -1320,6 +1315,11 @@ function actionCallResponses(operationId, toolNames) {
   };
 }
 
+/**
+ * Slow two-turn run with a real MCP tool boundary for the steering e2e: turn 1
+ * streams a slow preamble then calls the advertised `remember_fact` MCP tool
+ * (steers drain at the PostToolBatch boundary), turn 2 streams the final text.
+ */
 function steerToolReplyResponses(label, toolNames) {
   const toolName = Array.from(toolNames).find((name) => name.startsWith(STEER_TOOL_NAME_PREFIX));
   if (!toolName) {

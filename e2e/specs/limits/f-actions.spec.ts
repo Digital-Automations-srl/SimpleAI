@@ -153,6 +153,12 @@ test("F2 ⚠ 28/10 · sostituire lo schema di un'Action conserva autenticazione 
   await expectNotBroken(page, errors);
 });
 
+async function actionHits(path: string): Promise<number> {
+  const response = await fetch(`${ACTION_DOMAIN}/__e2e/hits`);
+  const hits = (await response.json()) as Record<string, number>;
+  return hits[path] ?? 0;
+}
+
 async function chatWithAgent(page: Page, id: string) {
   await page.goto(`${NEW_CHAT_PATH}?agent_id=${encodeURIComponent(id)}`);
   await expect(page.getByTestId('text-input')).toBeVisible();
@@ -167,6 +173,11 @@ async function expectChatContinues(
   await expect(messagesView(page).getByText(`E2E action done ${operationId}`)).toBeVisible({
     timeout: 60_000,
   });
+  /** The model closes with "done" after any tool outcome, so prove the endpoint was reached. */
+  const path = { e2eError: '/error', e2eSlow: '/slow', e2eHuge: '/huge' }[operationId];
+  expect(await actionHits(path!), `l'endpoint ${path} deve essere stato chiamato`).toBeGreaterThan(
+    0,
+  );
   await sendMessageAndWaitForCompletion(page, replyPrompt(label));
   await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
   await expectNotBroken(page, errors);

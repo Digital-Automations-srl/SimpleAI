@@ -9,6 +9,7 @@ const http = require('http');
 const PORT = Number(process.env.E2E_ACTION_PORT) || 8792;
 
 let behavior = {};
+let hits = {};
 
 function readBody(req) {
   return new Promise((resolve) => {
@@ -43,6 +44,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/__e2e/hits') {
+    sendJson(res, 200, hits);
+    return;
+  }
+
+  if (req.method === 'GET' && ['/ok', '/error', '/slow', '/huge'].includes(url.pathname)) {
+    hits[url.pathname] = (hits[url.pathname] || 0) + 1;
+  }
+
   if (req.method === 'GET' && url.pathname === '/ok') {
     sendJson(res, 200, { result: 'E2E action ok' });
     return;
@@ -71,6 +81,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/__e2e/reset') {
     behavior = {};
+    hits = {};
     sendJson(res, 200, { ok: true });
     return;
   }
