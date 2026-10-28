@@ -270,6 +270,167 @@ test.describe('SimpleAI model fallback', () => {
   });
 });
 
+test.describe('SimpleAI context warning', () => {
+  const CONTEXT_BUDGET = 1000;
+  const warning = (page: Page) => page.getByTestId('context-warning');
+  const composer = (page: Page) => page.getByRole('textbox', { name: 'Message input' });
+
+  /** The fake model never fills a real window; the persisted snapshot is what the warning reads. */
+  async function reportContextUsage(page: Page, percent: number) {
+    await page.route(/\/api\/messages\/[^/?]+$/, async (route) => {
+      if (route.request().method() !== 'GET') {
+        return route.continue();
+      }
+      const response = await route.fetch();
+      const messages = (await response.json()) as Array<Record<string, unknown>>;
+      const withUsage = messages.map((message) =>
+        message.isCreatedByUser === true
+          ? message
+          : {
+              ...message,
+              metadata: {
+                ...(message.metadata as object | undefined),
+                contextUsage: {
+                  runId: `e2e-context-${String(message.messageId)}`,
+                  contextBudget: CONTEXT_BUDGET,
+                  breakdown: {
+                    maxContextTokens: CONTEXT_BUDGET,
+                    instructionTokens: 0,
+                    systemMessageTokens: 0,
+                    dynamicInstructionTokens: 0,
+                    toolSchemaTokens: 0,
+                    summaryTokens: 0,
+                    toolCount: 0,
+                    messageCount: 2,
+                    messageTokens: (CONTEXT_BUDGET * percent) / 100,
+                    availableForMessages: CONTEXT_BUDGET,
+                  },
+                },
+              },
+            },
+      );
+      await route.fulfill({ response, json: withUsage });
+    });
+  }
+
+  /** A saved conversation reopened with its context filled to `percent`. */
+  async function openFilledChat(
+    page: Page,
+    percent: number,
+    choose?: (page: Page) => Promise<void>,
+  ) {
+    await openNewChat(page);
+    await choose?.(page);
+    const label = uniqueName('context');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+    await reportContextUsage(page, percent);
+    await page.reload();
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+    return { conversationUrl: page.url(), label };
+  }
+
+  test('stays away below 45% and appears above it', async ({ page }) => {
+    await openFilledChat(page, 40);
+    await expect(page.getByTestId('token-usage')).toBeVisible();
+    await expect(warning(page)).toHaveCount(0);
+
+    await reportContextUsage(page, 52);
+    await page.reload();
+    await expect(warning(page)).toContainText('This chat is getting long (52%)');
+
+    await reportContextUsage(page, 90);
+    await page.reload();
+    await expect(warning(page)).toContainText('This chat is almost full (90%)');
+  });
+
+  test('a dismissed warning stays hidden for the chat', async ({ page }) => {
+    await openFilledChat(page, 52);
+    await warning(page).getByRole('button', { name: 'Dismiss' }).click();
+    await expect(warning(page)).toHaveCount(0);
+
+    await sendMessageAndWaitForCompletion(page, replyPrompt(uniqueName('after-dismiss')));
+    await expect(warning(page)).toHaveCount(0);
+  });
+
+  test('"New chat" opens a fresh chat on the same model and keeps the old one', async ({
+    page,
+  }) => {
+    const selector = page.getByTestId('model-selector-button');
+    const [chatModel, laterModel] = MOCK_ENDPOINTS;
+    const { conversationUrl } = await openFilledChat(page, 60, (current) =>
+      selectMockEndpoint(current, chatModel),
+    );
+    /** The user moves on to another model elsewhere: a plain new chat would now open on that. */
+    await openNewChat(page);
+    await selectMockEndpoint(page, laterModel);
+    await page.goto(conversationUrl);
+    await expect(warning(page)).toBeVisible();
+
+    await warning(page).getByRole('button', { name: 'New chat' }).click();
+    await expect(page).toHaveURL(/\/c\/new/);
+    await expect(selector).toHaveText(new RegExp(`${chatModel.label}|${chatModel.model}`));
+    await expect(warning(page)).toHaveCount(0);
+
+    await page.goto(conversationUrl);
+    await expect(messagesView(page).getByText(/./).first()).toBeVisible();
+  });
+
+  test('"Compact" summarizes the chat and hides the warning', async ({ page }) => {
+    await openFilledChat(page, 60);
+    await warning(page).getByRole('button', { name: 'Compact context' }).click();
+    await expect(messagesView(page).getByText('You compacted the context')).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(warning(page)).toHaveCount(0);
+  });
+
+  test('"Handoff prompt" opens a new chat with the answer ready to send', async ({ page }) => {
+    await openNewChat(page);
+    await composer(page).fill('an unsent draft of the new chat');
+    const { conversationUrl } = await openFilledChat(page, 60);
+
+    await warning(page).getByRole('button', { name: 'Handoff prompt' }).click();
+    await expect(page).toHaveURL(/\/c\/new/, { timeout: 60_000 });
+    const handoff = await composer(page).inputValue();
+    expect(handoff.trim()).not.toBe('');
+    expect(handoff).not.toContain('an unsent draft of the new chat');
+
+    await page.goto(conversationUrl);
+    await expect(
+      messagesView(page).getByText('Write a prompt that lets me continue this work', {
+        exact: false,
+      }),
+    ).toBeVisible();
+  });
+
+  test('with the gauge turned off the warning is the only signal', async ({ page }) => {
+    await page.route(/\/api\/config$/, async (route) => {
+      const response = await route.fetch();
+      const config = (await response.json()) as { interface?: Record<string, unknown> };
+      await route.fulfill({
+        response,
+        json: { ...config, interface: { ...config.interface, contextGauge: false } },
+      });
+    });
+    await openFilledChat(page, 60);
+    await expect(warning(page)).toBeVisible();
+    await expect(page.getByTestId('token-usage')).toHaveCount(0);
+
+    await warning(page).getByRole('button', { name: 'Details' }).click();
+    await expect(page.getByText('Context window', { exact: true })).toBeVisible();
+
+    /** Compacting from the details hides the warning, and with it the button they hang from. */
+    const details = page.getByRole('dialog', { name: 'Context usage' });
+    await details.getByRole('button', { name: 'Compact context' }).click();
+    await expect(messagesView(page).getByText('You compacted the context')).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(warning(page)).toHaveCount(0);
+    await expect(details).toHaveCount(0);
+  });
+});
+
 test.describe('SimpleAI agent builder', () => {
   test('the Create tab drafts the agent from a description and saves it', async ({ page }) => {
     const form = await openAgentBuilder(page);

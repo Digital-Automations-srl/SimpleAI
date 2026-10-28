@@ -24,10 +24,13 @@ interface:
   prompts: true
   bookmarks: true
   multiConvo: true
+  # share/public NON scritti: la condivisione la decide la casella "Shared Agents"
+  # della GUI (scrive i permessi sul documentale). Le sotto-voci omesse restano
+  # quelle salvate nel database (doc ufficiale interface), quindi la GUI prevale
+  # sul valore predefinito del file ufficiale. Vale per LibreChat >= 0.8.8 e Simple AI.
   agents:
     use: true
     create: true
-    share: true
   peoplePicker:
     users: true
     groups: true
@@ -35,6 +38,8 @@ interface:
   marketplace:
     use: true
   fileCitations: true
+  # Rotella del contesto nascosta: resta l'avviso sopra la casella dal 45% (Dettagli apre il riepilogo).
+  contextGauge: false
 
 registration:
   socialLogins: []
@@ -97,7 +102,228 @@ fileConfig:
 actions:
   allowedDomains:
     - "https://n8n.digitalautomations.it"
+    - "https://sgo.digaut.it"
 
+endpoints:
+
+  azureOpenAI:
+    titleModel: gpt-5
+    plugins: true
+    groups:
+      - group: "Default"
+        apiKey: "${AZURE_INSTANCE_KEY}"
+        instanceName: "${AZURE_INSTANCE_NAME}"
+        version: "${AZURE_API_VERSION}"
+        models:
+          "gpt-6-luna":
+            deploymentName: gpt-6-luna
+          "gpt-6.1-sol":
+            deploymentName: gpt-6.1-sol
+          "gpt-6-astra":
+            deploymentName: gpt-6-astra
+          "gpt-5.6-terra":
+            deploymentName: gpt-5.6-terra
+          "gpt-chat-latest":
+            deploymentName: gpt-chat-latest
+
+  google:
+    streamRate: 5
+    titleModel: "gemini-2.5-flash"
+
+  anthropic:
+    streamRate: 20
+    titleModel: "claude-haiku-4-5"
+    titleMethod: "completion"
+    vertex:
+      region: "global"
+      projectId: "simple-ai-saas-5"
+      serviceKeyFile: "/api/data/auth.json"
+      models:
+        "claude-haiku-5-5":
+          deploymentName: claude-haiku-5-5
+        "claude-sonnet-5-5":
+          deploymentName: claude-sonnet-5-5
+        "claude-opus-5-5":
+          deploymentName: claude-opus-5-5
+        "claude-fable-5-1":
+          deploymentName: claude-fable-5-1
+
+  # Regolo: un fornitore per modello, ognuno con la propria chiave (consumi
+  # separati per macchina e modello). Le chiavi stanno solo nelle variabili.
+  custom:
+    - name: "GLM 5.2"
+      apiKey: "${REGOLO_KEY_GLM5_2}"
+      baseURL: "https://api.regolo.ai/v1"
+      models:
+        default: ["glm5.2"]
+        fetch: false
+      titleConvo: true
+      titleModel: "current_model"
+      modelDisplayLabel: "GLM 5.2"
+    - name: "Qwen 3.5 122B"
+      apiKey: "${REGOLO_KEY_QWEN3_5_122B}"
+      baseURL: "https://api.regolo.ai/v1"
+      models:
+        default: ["qwen3.5-122b"]
+        fetch: false
+      titleConvo: true
+      titleModel: "current_model"
+      modelDisplayLabel: "Qwen 3.5 122B"
+    - name: "Qwen 3.8 27B"
+      apiKey: "${REGOLO_KEY_QWEN3_8_27B}"
+      baseURL: "https://api.regolo.ai/v1"
+      models:
+        default: ["qwen3.8-27b"]
+        fetch: false
+      titleConvo: true
+      titleModel: "current_model"
+      modelDisplayLabel: "Qwen 3.8 27B"
+
+  agents:
+    recursionLimit: 50
+    maxRecursionLimit: 100
+    disableBuilder: false
+    maxCitations: 30
+    maxCitationsPerFile: 7
+    minRelevanceScore: 0.45
+    capabilities: ["execute_code", "file_search", "web_search", "artifacts", "actions", "tools", "context", "chain", "ocr"]
+
+# Voci di menu dei modelli Regolo, riunite nel gruppo "Open source".
+# prioritize false: le nuove chat NON partono forzatamente su un modello Regolo.
+# enforce false: gli altri fornitori restano selezionabili.
+# addedEndpoints: fornitori mostrati accanto al gruppo. I fornitori Regolo
+# dedicati (uno per modello) non sono elencati, quindi non compaiono come voci
+# dirette: si raggiungono solo dal gruppo.
+# Scheda "Crea" del pannello agenti: spec usata per generare la configurazione dell'agente.
+agentBuilder:
+  spec: auto-sonnet
+
+# Ripiego automatico: se un modello va in rate limit, sovraccarico o errore 5xx prima di
+# rispondere, la stessa richiesta passa a un altro modello della stessa fascia, poi di quelle
+# superiori. Fasce dalla più bassa alla più alta, con i `name` delle modelSpecs.
+modelFallback:
+  tiers:
+    - [auto-haiku, auto-luna]
+    - [auto-sonnet, auto-astra]
+    - [auto-opus, auto-sol]
+
+modelSpecs:
+  enforce: false
+  prioritize: false
+  addedEndpoints:
+    - azureOpenAI
+    - google
+    - anthropic
+    - agents
+  list:
+    # Router automatico: Jev (TypeSafe) sceglie modello e strumenti a ogni messaggio.
+    # Serve TYPESAFE_API_KEY nel .env; senza chiave, o se Jev non risponde, usa `fallback`.
+    # Le nuove chat partono in automatico; l'utente lo spegne dal toggle nella barra della chat.
+    - name: auto
+      label: Automatico
+      description: "Sceglie da solo il modello più adatto alla richiesta"
+      iconURL: anthropic
+      default: true
+      preset:
+        endpoint: anthropic
+        model: claude-sonnet-5-5
+      router:
+        fallback: auto-sonnet
+        historyMessages: 5
+        maxMessageChars: 2000
+        timeoutMs: 4000
+        candidates:
+          auto-opus: "Fascia alta, Anthropic: analisi lunghe e complesse, ragionamento profondo, lavoro su molti documenti, scrittura accurata"
+          auto-sol: "Fascia alta, OpenAI: problemi logici, matematici o di programmazione difficili che richiedono ragionamento passo passo"
+          auto-sonnet: "Fascia media, Anthropic: scrittura, sintesi e analisi di media complessità"
+          auto-astra: "Fascia media, OpenAI: compiti generali di media complessità"
+          auto-haiku: "Fascia bassa, Anthropic: domande brevi, saluti, riformulazioni, traduzioni semplici"
+          auto-luna: "Fascia bassa, OpenAI: domande brevi e fattuali, risposte rapide"
+        tools:
+          web_search: "ricerca sul web per informazioni recenti, notizie, prezzi o fatti che il modello potrebbe non conoscere"
+          execute_code: "esecuzione di codice per calcoli, analisi di dati, grafici o creazione e conversione di file"
+    # Candidati del router: nascosti dal menu, usati solo dalla modalità Automatico.
+    - name: auto-opus
+      label: Opus 5.5
+      showInMenu: false
+      iconURL: anthropic
+      preset:
+        endpoint: anthropic
+        model: claude-opus-5-5
+    - name: auto-sonnet
+      label: Sonnet 5.5
+      showInMenu: false
+      iconURL: anthropic
+      preset:
+        endpoint: anthropic
+        model: claude-sonnet-5-5
+    - name: auto-haiku
+      label: Haiku 5.5
+      showInMenu: false
+      iconURL: anthropic
+      preset:
+        endpoint: anthropic
+        model: claude-haiku-5-5
+    - name: auto-sol
+      label: GPT-6.1 Sol
+      showInMenu: false
+      iconURL: azureOpenAI
+      preset:
+        endpoint: azureOpenAI
+        model: gpt-6.1-sol
+    - name: auto-astra
+      label: GPT-6 Astra
+      showInMenu: false
+      iconURL: azureOpenAI
+      preset:
+        endpoint: azureOpenAI
+        model: gpt-6-astra
+    - name: auto-luna
+      label: GPT-6 Luna
+      showInMenu: false
+      iconURL: azureOpenAI
+      preset:
+        endpoint: azureOpenAI
+        model: gpt-6-luna
+    - name: glm5-2
+      label: "GLM 5.2"
+      description: "(openweight, EU): modello GLM generalista"
+      group: "Open source"
+      order: 40
+      preset:
+        endpoint: "GLM 5.2"
+        model: "glm5.2"
+    - name: qwen3-5-122b
+      label: "Qwen 3.5 122B"
+      description: "(openweight, EU): il pi\u00f9 capace della famiglia Qwen disponibile"
+      group: "Open source"
+      order: 41
+      preset:
+        endpoint: "Qwen 3.5 122B"
+        model: "qwen3.5-122b"
+    - name: qwen3-8-27b
+      label: "Qwen 3.8 27B"
+      description: "(openweight, EU): pi\u00f9 leggero e rapido"
+      group: "Open source"
+      order: 42
+      preset:
+        endpoint: "Qwen 3.8 27B"
+        model: "qwen3.8-27b"
+
+webSearch:
+  searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
+  searchProvider: "searxng"
+  firecrawlApiKey: "${FIRECRAWL_API_KEY}"
+  firecrawlApiUrl: "${FIRECRAWL_API_URL}"
+  scraperProvider: "firecrawl"
+  jinaApiKey: "${JINA_API_KEY}"
+  jinaApiUrl: "${JINA_API_URL}"
+  rerankerType: "jina"
+  safeSearch: 1
+  scraperTimeout: 5000
+  # SearXNG gira su Tailscale (100.x): senza eccezione la protezione SSRF di v0.8.8 lo blocca.
+  allowedAddresses:
+    - "100.116.255.59:8080"
 
 mcpServers:
   odoo-ai:
@@ -127,472 +353,3 @@ mcpServers:
 mcpSettings:
   allowedAddresses:
     - "gmail-mcp:8000"
-
-
-endpoints:
-
-  azureOpenAI:
-    titleModel: gpt-5
-    plugins: true
-    groups:
-      - group: "Default"
-        apiKey: "${AZURE_INSTANCE_KEY}"
-        instanceName: "${AZURE_INSTANCE_NAME}"
-        version: "${AZURE_API_VERSION}"
-        models:
-          "gpt-chat-latest":
-            deploymentName: gpt-chat-latest
-          "gpt-5.4":
-            deploymentName: gpt-5.4
-          "gpt-5.4-mini":
-            deploymentName: gpt-5.4-mini
-          "gpt-5.4-nano":
-            deploymentName: gpt-5.4-nano
-          "gpt-5.3-chat":
-            deploymentName: gpt-5.3-chat
-          "gpt-5.2-chat":
-            deploymentName: gpt-5.2-chat
-          "gpt-5.2":
-            deploymentName: gpt-5.2
-          "gpt-5.1":
-            deploymentName: gpt-5.1
-          "gpt-5":
-            deploymentName: gpt-5
-
-  google:
-    streamRate: 5
-    titleModel: "gemini-2.5-flash"
-
-  anthropic:
-    streamRate: 20
-    titleModel: "claude-haiku-4-5"
-    titleMethod: "completion"
-    vertex:
-      region: "global"
-      projectId: "simple-ai-saas-5"
-      serviceKeyFile: "/api/data/auth.json"
-      models:
-        "claude-sonnet-5":
-          deploymentName: claude-sonnet-5
-        "claude-fable-5":
-          deploymentName: claude-fable-5
-        "claude-opus-4-8":
-          deploymentName: claude-opus-4-8
-        "claude-opus-4-7":
-          deploymentName: claude-opus-4-7
-        "claude-opus-4-6":
-          deploymentName: claude-opus-4-6
-        "claude-opus-4-5":
-          deploymentName: claude-opus-4-5
-        "claude-sonnet-4-6":
-          deploymentName: claude-sonnet-4-6
-        "claude-sonnet-4-5":
-          deploymentName: claude-sonnet-4-5
-        "claude-haiku-4-5":
-          deploymentName: claude-haiku-4-5
-
-  agents:
-    recursionLimit: 50
-    maxRecursionLimit: 100
-    disableBuilder: false
-    maxCitations: 30
-    maxCitationsPerFile: 7
-    minRelevanceScore: 0.45
-    capabilities: ["execute_code", "file_search", "web_search", "artifacts", "actions", "tools", "context", "chain", "ocr"]
-
-  custom:
-    - name: "Regolo GLM"
-      apiKey: "${REGOLO_API_KEY}"
-      baseURL: "https://api.regolo.ai/v1"
-      models:
-        default: ["glm5.2"]
-        fetch: false
-      titleConvo: true
-      titleModel: "glm5.2"
-      modelDisplayLabel: "Regolo GLM"
-
-    - name: "Regolo Qwen"
-      apiKey: "${REGOLO_API_KEY}"
-      baseURL: "https://api.regolo.ai/v1"
-      models:
-        default: ["qwen3.5-122b", "qwen3.8-27b"]
-        fetch: false
-      titleConvo: true
-      titleModel: "qwen3.8-27b"
-      modelDisplayLabel: "Regolo Qwen"
-
-webSearch:
-  searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
-  searchProvider: "searxng"
-  firecrawlApiKey: "${FIRECRAWL_API_KEY}"
-  firecrawlApiUrl: "${FIRECRAWL_API_URL}"
-  scraperProvider: "firecrawl"
-  jinaApiKey: "${JINA_API_KEY}"
-  jinaApiUrl: "${JINA_API_URL}"
-  rerankerType: "jina"
-  safeSearch: 1
-  scraperTimeout: 5000
-
-# Scheda "Crea" del pannello agenti: l'utente descrive l'agente e `spec` lo configura
-# (nome, istruzioni, categoria, modello, strumenti). I modelli assegnabili sono i candidati
-# della spec automatica `auto`; per sceglierne altri: `models: { <spec>: "<quando usarlo>" }`.
-# Senza questo blocco il pannello agenti resta solo il modulo classico.
-agentBuilder:
-  spec: sonnet-5
-
-# Ripiego automatico: se un modello va in rate limit, sovraccarico o errore 5xx prima di
-# rispondere, la stessa richiesta passa a un altro modello della stessa fascia, poi di quelle
-# superiori. Fasce dalla più bassa alla più alta, con i `name` delle modelSpecs.
-modelFallback:
-  tiers:
-    - [haiku-4-5, gpt-5.4-mini]
-    - [sonnet-5, gpt-5.4]
-    - [opus-4-8, gpt-5.4-reasoning]
-
-modelSpecs:
-  prioritize: true
-  # enforce resta false: con modelSelect/presets/parameters attivi entrerebbe in conflitto
-  enforce: false
-  # Solo gli endpoint elencati restano navigabili come tali; i provider coperti dagli
-  # spec spariscono dal selettore, eliminando i doppioni col nome tecnico del modello.
-  addedEndpoints:
-    - agents
-
-  # Esposti: 3 per provider (migliore / equilibrato / economico), 8 voci in tutto.
-  # Le mappe "models:" degli endpoint restano COMPLETE: gli agenti e le conversazioni
-  # storiche continuano a risolvere qualunque modello configurato, anche se non compare
-  # qui. NON rimuovere voci dalla mappa di azureOpenAI: mapModelToAzureConfig lancia
-  # 'Model named "X" not found in configuration.' e ogni agente fissato su quel modello
-  # si rompe. Su Vertex il comportamento è invece passthrough e non rompe nulla.
-  list:
-    # Router automatico: Jev (TypeSafe) sceglie modello e strumenti a ogni messaggio.
-    # Serve TYPESAFE_API_KEY nel .env; senza chiave, o se Jev non risponde, usa `fallback`.
-    - name: auto
-      label: Automatico
-      description: "Sceglie da solo il modello più adatto alla richiesta"
-      iconURL: anthropic
-      order: 1
-      # Le nuove chat partono in automatico; l'utente lo spegne dal toggle nella barra della chat.
-      default: true
-      preset:
-        endpoint: anthropic
-        model: claude-sonnet-5
-      router:
-        fallback: gpt-5.4
-        historyMessages: 5
-        maxMessageChars: 2000
-        timeoutMs: 4000
-        candidates:
-          opus-4-8: "Fascia alta, Anthropic: analisi lunghe e complesse, ragionamento profondo, lavoro su molti documenti, scrittura accurata"
-          gpt-5.4-reasoning: "Fascia alta, OpenAI: problemi logici, matematici o di programmazione difficili che richiedono ragionamento passo passo"
-          sonnet-5: "Fascia media, Anthropic: scrittura, sintesi e analisi di media complessità, senza strumenti"
-          gpt-5.4: "Fascia media, OpenAI: compiti generali di media complessità, anche con strumenti"
-          haiku-4-5: "Fascia bassa, Anthropic: domande brevi, saluti, riformulazioni, traduzioni semplici"
-          gpt-5.4-mini: "Fascia bassa, OpenAI: domande brevi e fattuali, risposte rapide"
-        tools:
-          web_search: "ricerca sul web per informazioni recenti, notizie, prezzi o fatti che il modello potrebbe non conoscere"
-          execute_code: "esecuzione di codice per calcoli, analisi di dati, grafici o creazione e conversione di file"
-    - name: opus-4-8
-      label: Opus 4.8
-      description: "Il modello Anthropic più capace: analisi complesse e ragionamento profondo"
-      group: Anthropic
-      groupIcon: anthropic
-      iconURL: anthropic
-      order: 10
-      preset:
-        endpoint: anthropic
-        model: claude-opus-4-8
-    - name: sonnet-5
-      label: Sonnet 5
-      description: "Ultima generazione Sonnet — solo chat: non usare con agenti o strumenti"
-      group: Anthropic
-      groupIcon: anthropic
-      iconURL: anthropic
-      order: 11
-      preset:
-        endpoint: anthropic
-        model: claude-sonnet-5
-      softDefault: true
-    - name: haiku-4-5
-      label: Haiku 4.5
-      description: "Il più rapido ed economico: ideale per compiti brevi e ripetitivi"
-      group: Anthropic
-      groupIcon: anthropic
-      iconURL: anthropic
-      order: 12
-      preset:
-        endpoint: anthropic
-        model: claude-haiku-4-5
-    - name: gpt-5.4
-      label: GPT-5.4
-      description: Modello OpenAI di punta per compiti generali
-      group: Azure OpenAI
-      groupIcon: azureOpenAI
-      iconURL: azureOpenAI
-      order: 20
-      preset:
-        endpoint: azureOpenAI
-        model: gpt-5.4
-    - name: gpt-5.4-mini
-      label: GPT-5.4 Mini
-      description: Versione più leggera e rapida di GPT-5.4
-      group: Azure OpenAI
-      groupIcon: azureOpenAI
-      iconURL: azureOpenAI
-      order: 21
-      preset:
-        endpoint: azureOpenAI
-        model: gpt-5.4-mini
-    - name: gemini-3-1-pro
-      label: Gemini 3.1 Pro
-      description: Il modello Google più capace — in preview
-      group: Google
-      groupIcon: google
-      iconURL: google
-      order: 30
-      preset:
-        endpoint: google
-        model: gemini-3.1-pro-preview
-    - name: gpt-5.4-reasoning
-      label: GPT-5.4 Reasoning
-      description: GPT-5.4 con ragionamento avanzato attivo
-      group: Azure OpenAI
-      groupIcon: azureOpenAI
-      iconURL: azureOpenAI
-      order: 22
-      preset:
-        endpoint: azureOpenAI
-        model: gpt-5.4
-        useResponsesApi: true
-        reasoning_effort: high
-        reasoning_summary: concise
-    - name: gemini-3-flash
-      label: Gemini 3 Flash
-      description: Rapido ed economico — in preview
-      group: Google
-      groupIcon: google
-      iconURL: google
-      order: 31
-      preset:
-        endpoint: google
-        model: gemini-3-flash-preview
-
-    - name: regolo-glm5-2
-      label: GLM 5.2
-      description: "Regolo (openweight, EU): modello GLM generalista"
-      group: Regolo
-      order: 40
-      preset:
-        endpoint: "Regolo GLM"
-        model: glm5.2
-    - name: regolo-qwen3-5-122b
-      label: Qwen 3.5 122B
-      description: "Regolo (openweight, EU): il più capace della famiglia Qwen disponibile"
-      group: Regolo
-      order: 41
-      preset:
-        endpoint: "Regolo Qwen"
-        model: qwen3.5-122b
-    - name: regolo-qwen3-8-27b
-      label: Qwen 3.8 27B
-      description: "Regolo (openweight, EU): più leggero e rapido"
-      group: Regolo
-      order: 42
-      preset:
-        endpoint: "Regolo Qwen"
-        model: qwen3.8-27b
-
-    # ------------------------------------------------------------------
-    # Non esposti nel selettore (2026-07-28). Restano utilizzabili da agenti
-    # e conversazioni esistenti; per riesporne uno basta scommentarne il blocco.
-    # ------------------------------------------------------------------
-    # - name: opus-4-7
-    #   label: Opus 4.7
-    #   description: Generazione Opus precedente, ancora molto forte sui compiti complessi
-    #   group: Anthropic
-    #   groupIcon: anthropic
-    #   iconURL: anthropic
-    #   order: 11
-    #   preset:
-    #     endpoint: anthropic
-    #     model: claude-opus-4-7
-    # - name: opus-4-6
-    #   label: Opus 4.6
-    #   description: "Opus consolidato: buon equilibrio fra qualità e costo"
-    #   group: Anthropic
-    #   groupIcon: anthropic
-    #   iconURL: anthropic
-    #   order: 12
-    #   preset:
-    #     endpoint: anthropic
-    #     model: claude-opus-4-6
-    # - name: opus-4-5
-    #   label: Opus 4.5
-    #   description: Opus più datato, mantenuto per compatibilità
-    #   group: Anthropic
-    #   groupIcon: anthropic
-    #   iconURL: anthropic
-    #   order: 13
-    #   preset:
-    #     endpoint: anthropic
-    #     model: claude-opus-4-5
-    # - name: sonnet-4-6
-    #   label: Sonnet 4.6
-    #   description: "Equilibrio fra velocità e qualità: la scelta per l'uso quotidiano"
-    #   group: Anthropic
-    #   groupIcon: anthropic
-    #   iconURL: anthropic
-    #   order: 15
-    #   softDefault: true
-    #   preset:
-    #     endpoint: anthropic
-    #     model: claude-sonnet-4-6
-    # - name: sonnet-4-5
-    #   label: Sonnet 4.5
-    #   description: Sonnet precedente, mantenuto per compatibilità
-    #   group: Anthropic
-    #   groupIcon: anthropic
-    #   iconURL: anthropic
-    #   order: 16
-    #   preset:
-    #     endpoint: anthropic
-    #     model: claude-sonnet-4-5
-    # - name: fable-5
-    #   label: Fable 5
-    #   description: Modello Anthropic orientato alla scrittura creativa
-    #   group: Anthropic
-    #   groupIcon: anthropic
-    #   iconURL: anthropic
-    #   order: 18
-    #   preset:
-    #     endpoint: anthropic
-    #     model: claude-fable-5
-    # - name: gpt-5.4-nano
-    #   label: GPT-5.4 Nano
-    #   description: La variante più economica, per compiti semplici e ad alto volume
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 22
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.4-nano
-    # - name: gpt-5.3-chat
-    #   label: GPT-5.3 Chat
-    #   description: Ottimizzato per la conversazione
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 23
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.3-chat
-    # - name: gpt-5.2-chat
-    #   label: GPT-5.2 Chat
-    #   description: Conversazionale, generazione precedente
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 24
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.2-chat
-    # - name: gpt-chat-latest
-    #   label: GPT Chat (ultima)
-    #   description: Punta sempre all'ultima versione conversazionale disponibile su Azure
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 25
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-chat-latest
-    # - name: gpt-5.2
-    #   label: GPT-5.2
-    #   description: Generazione precedente, buon compromesso qualità/costo
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 26
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.2
-    # - name: gpt-5.1
-    #   label: GPT-5.1
-    #   description: Mantenuto per compatibilità
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 27
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.1
-    # - name: gpt-5
-    #   label: GPT-5
-    #   description: Prima release della serie 5
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 28
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5
-    # - name: gpt-5.2-reasoning
-    #   label: GPT-5.2 Reasoning
-    #   description: GPT-5.2 con ragionamento avanzato attivo
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 30
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.2
-    #     useResponsesApi: true
-    #     reasoning_effort: high
-    #     reasoning_summary: concise
-    # - name: gpt-5.1-reasoning
-    #   label: GPT-5.1 Reasoning
-    #   description: GPT-5.1 con ragionamento avanzato attivo
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 31
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5.1
-    #     useResponsesApi: true
-    #     reasoning_effort: high
-    #     reasoning_summary: concise
-    # - name: gpt-5-reasoning
-    #   label: GPT-5 Reasoning
-    #   description: GPT-5 con ragionamento avanzato attivo
-    #   group: Azure OpenAI
-    #   groupIcon: azureOpenAI
-    #   iconURL: azureOpenAI
-    #   order: 32
-    #   preset:
-    #     endpoint: azureOpenAI
-    #     model: gpt-5
-    #     useResponsesApi: true
-    #     reasoning_effort: high
-    #     reasoning_summary: concise
-    # - name: gemini-2-5-pro
-    #   label: Gemini 2.5 Pro
-    #   description: Versione stabile per compiti complessi
-    #   group: Google
-    #   groupIcon: google
-    #   iconURL: google
-    #   order: 42
-    #   preset:
-    #     endpoint: google
-    #     model: gemini-2.5-pro
-    # - name: gemini-2-5-flash
-    #   label: Gemini 2.5 Flash
-    #   description: Stabile e rapido, per volumi elevati
-    #   group: Google
-    #   groupIcon: google
-    #   iconURL: google
-    #   order: 43
-    #   preset:
-    #     endpoint: google
-    #     model: gemini-2.5-flash

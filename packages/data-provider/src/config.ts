@@ -2311,6 +2311,7 @@ export const interfaceSchema = z
     runCode: z.boolean().optional(),
     webSearch: z.boolean().optional(),
     contextUsage: z.boolean().optional(),
+    contextGauge: z.boolean().optional(),
     contextCost: z.boolean().optional(),
     feedback: z.boolean().optional(),
     currency: z
@@ -2420,6 +2421,7 @@ export const interfaceSchema = z
     runCode: true,
     webSearch: true,
     contextUsage: true,
+    contextGauge: true,
     contextCost: false,
     feedback: true,
     peoplePicker: {

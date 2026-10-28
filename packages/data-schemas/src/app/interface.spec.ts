@@ -162,6 +162,30 @@ describe('loadDefaultInterface', () => {
     expect(interfaceConfig?.contextCost).toBe(false);
   });
 
+  it('shows the context gauge by default', async () => {
+    const interfaceConfig = await loadDefaultInterface({
+      config: {},
+      configDefaults: getConfigDefaults(),
+    });
+
+    expect(interfaceConfig?.contextGauge).toBe(true);
+  });
+
+  it('preserves a hidden context gauge', async () => {
+    const config: Partial<TCustomConfig> = {
+      interface: {
+        contextGauge: false,
+      },
+    };
+
+    const interfaceConfig = await loadDefaultInterface({
+      config,
+      configDefaults: getConfigDefaults(),
+    });
+
+    expect(interfaceConfig?.contextGauge).toBe(false);
+  });
+
   it('preserves enabled context cost config', async () => {
     const config: Partial<TCustomConfig> = {
       interface: {

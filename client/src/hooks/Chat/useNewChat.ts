@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRecoilValue } from 'recoil';
 import { QueryKeys } from 'librechat-data-provider';
 import { useQueryClient } from '@tanstack/react-query';
-import type { FileSources, TFile } from 'librechat-data-provider';
+import type { FileSources, TFile, TPreset } from 'librechat-data-provider';
 import type { MouseEvent } from 'react';
 import type { ExtendedFile } from '~/common';
 import type { FilesDraft } from '~/utils';
@@ -46,7 +46,8 @@ export type UseNewChatParams = {
 };
 
 export type UseNewChatResult = {
-  startNewChat: () => void;
+  /** `preset` reopens a specific model instead of the default one. */
+  startNewChat: (options?: { preset?: Partial<TPreset> }) => void;
   /** For an `<a href="/c/new">` trigger, so modified clicks still open a tab. */
   handleNewChatClick: (event: MouseEvent<HTMLElement>) => void;
   newConversation: ReturnType<typeof useNewConvo>['newConversation'];
@@ -297,185 +298,188 @@ export default function useNewChat({
     setPendingDiscardIds,
   ]);
 
-  const startNewChat = useCallback(() => {
-    clearMessagesCache(queryClient, conversationId);
-    queryClient.invalidateQueries([QueryKeys.messages]);
-    /** The unsaved-chat draft key outlives the reset and `useAutoSave` restores from it on the way
-     * in, so an unsent paste came back on every later new chat. Its attachments are dropped here to
-     * make an explicit new chat a clean slate; its text is deliberately kept, because the restore
-     * is also what puts a draft back when the user simply leaves the unsaved chat and returns, and
-     * clearing it made that the one composer that forgot what had been typed in it. Nothing else is
-     * gained by clearing it: unlike an attachment there is no upload behind it to leave dangling.
-     * Per-conversation drafts are untouched either way.
-     *
-     * With draft saving on, `newConversation` deliberately leaves the draft's files alive
-     * because a draft normally keeps them restorable; discarding the draft removes the only
-     * reference to them, so the uploads are deleted here rather than orphaned. Two limits keep
-     * that deletion safe: the unsaved-chat key is shared by every tab's default composer, so a
-     * record stamped with another tab's id is left alone, and only ids the composer still owns
-     * are deleted, because the draft also records library attaches whose files other messages
-     * share. Ids the composer no longer shows cannot be told apart from those, so they are left
-     * to retention cleanup; ids still uploading are kept until their records arrive. */
-    const draftId = getNewConversationDraftId(index);
-    const pendingId = getPendingDraftId(index);
-    const idleDraft = getFilesDraft(draftId);
-    const pendingDraft = getFilesDraft(pendingId);
-    const collectDiscardWork = (
-      draft: FilesDraft,
-    ): { deletable: DeletableRecord[]; deferred: string[] } => {
-      if (!isFilesDraftOwnedByThisTab(draft)) {
-        return { deletable: [], deferred: [] };
-      }
-      const pasteIds = new Set(draft.pastedTextIds ?? []);
-      const ownedIds = collectOwnedIds(files, pasteIds);
-      /** A draft's own paste provenance is ownership in itself: after a reload the composer
-       * map may not be rebuilt yet when New Chat is clicked, and the chips those ids are
-       * waiting to become would otherwise be skipped rather than discarded with the draft.
+  const startNewChat = useCallback(
+    (options?: { preset?: Partial<TPreset> }) => {
+      clearMessagesCache(queryClient, conversationId);
+      queryClient.invalidateQueries([QueryKeys.messages]);
+      /** The unsaved-chat draft key outlives the reset and `useAutoSave` restores from it on the way
+       * in, so an unsent paste came back on every later new chat. Its attachments are dropped here to
+       * make an explicit new chat a clean slate; its text is deliberately kept, because the restore
+       * is also what puts a draft back when the user simply leaves the unsaved chat and returns, and
+       * clearing it made that the one composer that forgot what had been typed in it. Nothing else is
+       * gained by clearing it: unlike an attachment there is no upload behind it to leave dangling.
+       * Per-conversation drafts are untouched either way.
        *
-       * Not for one a message already took, though. Submitting empties the file map but leaves
-       * the draft's provenance behind, and the run ending is no evidence either way: Stop and
-       * error paths clear the flag without clearing the draft. Only the submission itself knows,
-       * so ids it consumed are excluded by name rather than by whether a run is in flight. */
-      for (const pasteId of pasteIds) {
-        if (!isPasteSubmitted(pasteId)) {
-          ownedIds.add(pasteId);
+       * With draft saving on, `newConversation` deliberately leaves the draft's files alive
+       * because a draft normally keeps them restorable; discarding the draft removes the only
+       * reference to them, so the uploads are deleted here rather than orphaned. Two limits keep
+       * that deletion safe: the unsaved-chat key is shared by every tab's default composer, so a
+       * record stamped with another tab's id is left alone, and only ids the composer still owns
+       * are deleted, because the draft also records library attaches whose files other messages
+       * share. Ids the composer no longer shows cannot be told apart from those, so they are left
+       * to retention cleanup; ids still uploading are kept until their records arrive. */
+      const draftId = getNewConversationDraftId(index);
+      const pendingId = getPendingDraftId(index);
+      const idleDraft = getFilesDraft(draftId);
+      const pendingDraft = getFilesDraft(pendingId);
+      const collectDiscardWork = (
+        draft: FilesDraft,
+      ): { deletable: DeletableRecord[]; deferred: string[] } => {
+        if (!isFilesDraftOwnedByThisTab(draft)) {
+          return { deletable: [], deferred: [] };
         }
-      }
-      const draftFileIds = new Set([...draft.fileIds, ...Object.keys(draft.pendingPastes)]);
-      const deletable: DeletableRecord[] = [];
-      const deferred: string[] = [];
-      for (const fileId of draftFileIds) {
-        if (!ownedIds.has(fileId)) {
-          continue;
+        const pasteIds = new Set(draft.pastedTextIds ?? []);
+        const ownedIds = collectOwnedIds(files, pasteIds);
+        /** A draft's own paste provenance is ownership in itself: after a reload the composer
+         * map may not be rebuilt yet when New Chat is clicked, and the chips those ids are
+         * waiting to become would otherwise be skipped rather than discarded with the draft.
+         *
+         * Not for one a message already took, though. Submitting empties the file map but leaves
+         * the draft's provenance behind, and the run ending is no evidence either way: Stop and
+         * error paths clear the flag without clearing the draft. Only the submission itself knows,
+         * so ids it consumed are excluded by name rather than by whether a run is in flight. */
+        for (const pasteId of pasteIds) {
+          if (!isPasteSubmitted(pasteId)) {
+            ownedIds.add(pasteId);
+          }
         }
-        const record = findFilesRecord(fileList, fileId);
-        const deletableRecord = record != null ? toDeletableRecord(record) : null;
-        if (deletableRecord != null) {
-          deletable.push(deletableRecord);
-        } else if (record == null) {
-          deferred.push(fileId);
+        const draftFileIds = new Set([...draft.fileIds, ...Object.keys(draft.pendingPastes)]);
+        const deletable: DeletableRecord[] = [];
+        const deferred: string[] = [];
+        for (const fileId of draftFileIds) {
+          if (!ownedIds.has(fileId)) {
+            continue;
+          }
+          const record = findFilesRecord(fileList, fileId);
+          const deletableRecord = record != null ? toDeletableRecord(record) : null;
+          if (deletableRecord != null) {
+            deletable.push(deletableRecord);
+          } else if (record == null) {
+            deferred.push(fileId);
+          }
         }
-      }
-      return { deletable, deferred };
-    };
-    if (saveDrafts) {
-      const idleWork = collectDiscardWork(idleDraft);
-      const pendingWork = collectDiscardWork(pendingDraft);
-      const seen = new Set<string>();
-      const deletable: DeletableRecord[] = [];
-      for (const record of [...idleWork.deletable, ...pendingWork.deletable]) {
-        if (seen.has(record.file_id)) {
-          continue;
-        }
-        seen.add(record.file_id);
-        deletable.push(record);
-      }
-      /** Persisting a draft can fail outright (private mode, quota) while the upload and its
-       * chip still succeed, leaving nothing in the draft to discard from. A generated paste the
-       * composer is still showing is its own evidence, so it is collected directly. One that came
-       * back `attached` is skipped for the usual reason: the registry also remembers pastes that
-       * were already sent and re-attached, and those belong to the message that sent them. */
-      files.forEach((file, key) => {
-        /** The registry is marked with the client upload id, while a completed entry carries the
-         * server one and keeps the original as `temp_file_id`, so the marker is matched through
-         * every identity or the finished paste reads as somebody else's file. */
-        const isMarkedPaste = [key, file.file_id, file.temp_file_id].some((id) =>
-          isPastedTextFileMarked(id),
-        );
-        if (
-          file.attached === true ||
-          file.progress < 1 ||
-          !isMarkedPaste ||
-          seen.has(file.file_id)
-        ) {
-          return;
-        }
-        const record = toDeletableComposerFile(file);
-        if (record != null) {
+        return { deletable, deferred };
+      };
+      if (saveDrafts) {
+        const idleWork = collectDiscardWork(idleDraft);
+        const pendingWork = collectDiscardWork(pendingDraft);
+        const seen = new Set<string>();
+        const deletable: DeletableRecord[] = [];
+        for (const record of [...idleWork.deletable, ...pendingWork.deletable]) {
+          if (seen.has(record.file_id)) {
+            continue;
+          }
           seen.add(record.file_id);
           deletable.push(record);
         }
-      });
-      const deferred = [...idleWork.deferred, ...pendingWork.deferred];
-      /** The retry effect consults every other tab before it deletes; this direct path has to do
-       * the same or it races past that guard entirely. A second tab can have reattached one of
-       * these pastes and even sent it, in which case its draft or its published presence is the
-       * only thing standing between the upload and this request. Its own keys and its own presence
-       * are excluded, because those hold exactly what this discard is throwing away. */
-      const claimedElsewhere = collectForeignAttachmentClaims([draftId, pendingId], index);
-      const discardable = deletable.filter((record) => !claimedElsewhere.has(record.file_id));
-      if (discardable.length > 0) {
-        mutateAsync({ files: discardable })
-          .then((result) => {
-            const failedIds = failedFileIdsFrom(result);
-            if (failedIds.length > 0) {
+        /** Persisting a draft can fail outright (private mode, quota) while the upload and its
+         * chip still succeed, leaving nothing in the draft to discard from. A generated paste the
+         * composer is still showing is its own evidence, so it is collected directly. One that came
+         * back `attached` is skipped for the usual reason: the registry also remembers pastes that
+         * were already sent and re-attached, and those belong to the message that sent them. */
+        files.forEach((file, key) => {
+          /** The registry is marked with the client upload id, while a completed entry carries the
+           * server one and keeps the original as `temp_file_id`, so the marker is matched through
+           * every identity or the finished paste reads as somebody else's file. */
+          const isMarkedPaste = [key, file.file_id, file.temp_file_id].some((id) =>
+            isPastedTextFileMarked(id),
+          );
+          if (
+            file.attached === true ||
+            file.progress < 1 ||
+            !isMarkedPaste ||
+            seen.has(file.file_id)
+          ) {
+            return;
+          }
+          const record = toDeletableComposerFile(file);
+          if (record != null) {
+            seen.add(record.file_id);
+            deletable.push(record);
+          }
+        });
+        const deferred = [...idleWork.deferred, ...pendingWork.deferred];
+        /** The retry effect consults every other tab before it deletes; this direct path has to do
+         * the same or it races past that guard entirely. A second tab can have reattached one of
+         * these pastes and even sent it, in which case its draft or its published presence is the
+         * only thing standing between the upload and this request. Its own keys and its own presence
+         * are excluded, because those hold exactly what this discard is throwing away. */
+        const claimedElsewhere = collectForeignAttachmentClaims([draftId, pendingId], index);
+        const discardable = deletable.filter((record) => !claimedElsewhere.has(record.file_id));
+        if (discardable.length > 0) {
+          mutateAsync({ files: discardable })
+            .then((result) => {
+              const failedIds = failedFileIdsFrom(result);
+              if (failedIds.length > 0) {
+                setPendingDiscardIds((current) => Array.from(new Set([...current, ...failedIds])));
+              }
+            })
+            .catch(() => {
+              /** A failed deletion is retried on the next files-cache update, exactly like a
+               * deferred one, instead of orphaning the uploads. */
+              const failedIds = discardable.map((record) => record.file_id);
               setPendingDiscardIds((current) => Array.from(new Set([...current, ...failedIds])));
-            }
-          })
-          .catch(() => {
-            /** A failed deletion is retried on the next files-cache update, exactly like a
-             * deferred one, instead of orphaning the uploads. */
-            const failedIds = discardable.map((record) => record.file_id);
-            setPendingDiscardIds((current) => Array.from(new Set([...current, ...failedIds])));
-          });
+            });
+        }
+        /** Merged, not replaced: a second reset while an earlier upload is still in flight
+         * must not forget that earlier id, or its eventual record is orphaned. */
+        setPendingDiscardIds((current) => Array.from(new Set([...current, ...deferred])));
       }
-      /** Merged, not replaced: a second reset while an earlier upload is still in flight
-       * must not forget that earlier id, or its eventual record is orphaned. */
-      setPendingDiscardIds((current) => Array.from(new Set([...current, ...deferred])));
-    }
-    /** An upload still in flight has no filepath or source yet, so no discard path can build a
-     * payload for it and the reset drops the chip regardless. Its id is deferred so the record is
-     * deleted once it finally arrives. With draft saving on the draft supplies these ids; with it
-     * off nothing else remembers them at all. */
-    const inFlightPasteIds: string[] = [];
-    files.forEach((file, key) => {
-      const isMarkedPaste = [key, file.file_id, file.temp_file_id].some((id) =>
-        isPastedTextFileMarked(id),
+      /** An upload still in flight has no filepath or source yet, so no discard path can build a
+       * payload for it and the reset drops the chip regardless. Its id is deferred so the record is
+       * deleted once it finally arrives. With draft saving on the draft supplies these ids; with it
+       * off nothing else remembers them at all. */
+      const inFlightPasteIds: string[] = [];
+      files.forEach((file, key) => {
+        const isMarkedPaste = [key, file.file_id, file.temp_file_id].some((id) =>
+          isPastedTextFileMarked(id),
+        );
+        if (file.attached !== true && file.progress < 1 && isMarkedPaste) {
+          inFlightPasteIds.push(file.file_id);
+        }
+      });
+      if (inFlightPasteIds.length > 0) {
+        setPendingDiscardIds((current) => Array.from(new Set([...current, ...inFlightPasteIds])));
+      }
+      /** A running response parks this pane's composer under the pending key; the clean slate
+       * discards that too, or the queued text and attachments come back with the next run.
+       * A record another tab still owns is left in place: clearing it would drop that tab's
+       * unsent text and attachment recovery if it reloads before the next autosave. */
+      if (isFilesDraftOwnedByThisTab(pendingDraft)) {
+        clearAllDrafts(pendingId);
+      }
+      /** Attachments only: the uploads behind them have just been deleted, so restoring the chips
+       * would reference files that are gone, while the typed message is what the user expects to
+       * find again on the way back into the unsaved chat. */
+      if (isFilesDraftOwnedByThisTab(idleDraft)) {
+        clearFilesDraft(draftId);
+      }
+      const discardedFileIds = Array.from(
+        new Set([
+          ...inFlightPasteIds,
+          ...Array.from(files.keys()),
+          ...Array.from(files.values()).flatMap(
+            (f) => [f.file_id, f.temp_file_id].filter(Boolean) as string[],
+          ),
+        ]),
       );
-      if (file.attached !== true && file.progress < 1 && isMarkedPaste) {
-        inFlightPasteIds.push(file.file_id);
-      }
-    });
-    if (inFlightPasteIds.length > 0) {
-      setPendingDiscardIds((current) => Array.from(new Set([...current, ...inFlightPasteIds])));
-    }
-    /** A running response parks this pane's composer under the pending key; the clean slate
-     * discards that too, or the queued text and attachments come back with the next run.
-     * A record another tab still owns is left in place: clearing it would drop that tab's
-     * unsent text and attachment recovery if it reloads before the next autosave. */
-    if (isFilesDraftOwnedByThisTab(pendingDraft)) {
-      clearAllDrafts(pendingId);
-    }
-    /** Attachments only: the uploads behind them have just been deleted, so restoring the chips
-     * would reference files that are gone, while the typed message is what the user expects to
-     * find again on the way back into the unsaved chat. */
-    if (isFilesDraftOwnedByThisTab(idleDraft)) {
-      clearFilesDraft(draftId);
-    }
-    const discardedFileIds = Array.from(
-      new Set([
-        ...inFlightPasteIds,
-        ...Array.from(files.keys()),
-        ...Array.from(files.values()).flatMap(
-          (f) => [f.file_id, f.temp_file_id].filter(Boolean) as string[],
-        ),
-      ]),
-    );
-    removeTabAttachmentPresence(discardedFileIds, index);
-    newConversation();
-    onNewChat?.();
-  }, [
-    queryClient,
-    conversationId,
-    newConversation,
-    onNewChat,
-    index,
-    saveDrafts,
-    fileList,
-    mutateAsync,
-    files,
-    setPendingDiscardIds,
-  ]);
+      removeTabAttachmentPresence(discardedFileIds, index);
+      newConversation(options?.preset != null ? { preset: options.preset } : undefined);
+      onNewChat?.();
+    },
+    [
+      queryClient,
+      conversationId,
+      newConversation,
+      onNewChat,
+      index,
+      saveDrafts,
+      fileList,
+      mutateAsync,
+      files,
+      setPendingDiscardIds,
+    ],
+  );
 
   const handleNewChatClick = useCallback(
     (event: MouseEvent<HTMLElement>) => {

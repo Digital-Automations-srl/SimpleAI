@@ -40,6 +40,7 @@ import {
   PendingToolApprovalPanel,
 } from '~/components/Chat/approval/Review';
 import PendingManualSkillsChips from './PendingManualSkillsChips';
+import { useApplyComposerPrefill } from '~/hooks/Chat/useContinueInNewChat';
 import usePastedTextEdit from '~/hooks/Files/usePastedTextEdit';
 import useAskAnswerMode from '~/hooks/Input/useAskAnswerMode';
 import AskUserQuestionPopover from './AskUserQuestionPopover';
@@ -162,6 +163,7 @@ const ChatForm = memo(function ChatForm({
   const localize = useLocalize();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [warningSlot, setWarningSlot] = useState<HTMLDivElement | null>(null);
   const [, setIsScrollable] = useState(false);
   const [visualRowCount, setVisualRowCount] = useState(1);
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(false);
@@ -296,6 +298,7 @@ const ChatForm = memo(function ChatForm({
     // when the question resolves.
     draftId: answerMode.draftId,
   });
+  useApplyComposerPrefill({ index, conversationId, isSubmitting });
 
   const pastedTextEdit = usePastedTextEdit({ index, files, setFiles, textAreaRef });
 
@@ -751,6 +754,7 @@ const ChatForm = memo(function ChatForm({
                 isTemporary && 'border-series-6/50 bg-series-6/10 high-contrast:border-series-6',
               )}
             >
+              <div ref={setWarningSlot} />
               <TextareaHeader addedConvo={addedConvo} setAddedConvo={setAddedConvo} />
               <PendingManualSkillsChips conversationId={conversationId} />
               {quotesEnabled && (
@@ -890,7 +894,12 @@ const ChatForm = memo(function ChatForm({
                   <PendingToolApprovalButton conversationId={conversationId} />
                 )}
                 <div className="grow" />
-                <TokenUsage index={index} conversation={conversation} isSubmitting={isSubmitting} />
+                <TokenUsage
+                  index={index}
+                  conversation={conversation}
+                  isSubmitting={isSubmitting}
+                  warningSlot={warningSlot}
+                />
                 {SpeechToText && (
                   <AudioRecorder
                     methods={methods}

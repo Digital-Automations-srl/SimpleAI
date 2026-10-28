@@ -1,6 +1,16 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "entries": [
+    {
+      "version": "2.3.0",
+      "date": "2026-10-28",
+      "title": "Avviso quando la chat diventa lunga",
+      "changes": [
+        "Quando una chat diventa lunga, sopra la casella di scrittura compare un avviso: le risposte potrebbero peggiorare",
+        "Dall'avviso puoi aprire una nuova chat con lo stesso modello, compattare quella attuale o preparare un prompt per continuare il lavoro altrove",
+        "Con \"Prompt di handoff\" il modello riassume il lavoro e lo trovi già nella casella di una chat nuova, pronto da rileggere e inviare"
+      ]
+    },
     {
       "version": "2.2.0",
       "date": "2026-10-26",

@@ -1,12 +1,21 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as Ariakit from '@ariakit/react';
 import { Spinner } from '@librechat/client';
 import { Constants } from 'librechat-data-provider';
 import type { TConversation } from 'librechat-data-provider';
 import type { CurrencyConfig } from '~/utils';
+import {
+  getContextWarningLevel,
+  isContextWarningVisible,
+  useContextWarningState,
+} from './warningLevel';
 import useCompactConversation, { supportsCompaction } from '~/hooks/Chat/useCompactConversation';
 import { useGetLangfuseSessionLinkQuery, useGetStartupConfig } from '~/data-provider';
+import useContinueInNewChat from '~/hooks/Chat/useContinueInNewChat';
 import useTokenUsage from '~/hooks/Chat/useTokenUsage';
+import useHandoff from '~/hooks/Chat/useHandoff';
+import ContextWarning from './ContextWarning';
 import CompactAction from './CompactAction';
 import { formatTokens, cn } from '~/utils';
 import { useLocalize } from '~/hooks';
@@ -17,6 +26,8 @@ interface TokenUsageProps {
   index: number;
   conversation: TConversation | null;
   isSubmitting: boolean;
+  /** Element above the composer the context warning renders into. */
+  warningSlot?: HTMLElement | null;
 }
 
 /** Hover pacing: a brief intent delay so sweeping past the gauge doesn't pop
@@ -32,11 +43,14 @@ function TokenUsageIndicator({
   currency,
   langfuseConnectionAccess,
   compactionEnabled,
+  warningSlot,
+  hideGauge,
 }: TokenUsageProps & {
   showCost: boolean;
   currency?: CurrencyConfig;
   langfuseConnectionAccess: boolean;
   compactionEnabled: boolean;
+  hideGauge: boolean;
 }) {
   const localize = useLocalize();
   const view = useTokenUsage({ index, conversation, isSubmitting });
@@ -44,6 +58,14 @@ function TokenUsageIndicator({
    *  in-flight state the moment the pointer leaves. */
   const compaction = useCompactConversation();
   const compactionAvailable = compactionEnabled && supportsCompaction(conversation?.endpoint);
+  const handoff = useHandoff();
+  const continueInNewChat = useContinueInNewChat();
+  const warningState = useContextWarningState({
+    warningKey: conversation?.conversationId ?? Constants.NEW_CONVO,
+    isCompacting: compaction.isCompacting,
+    isSubmitting,
+  });
+  const gaugeHidden = hideGauge && view.maxTokens != null && view.maxTokens > 0;
   const popover = Ariakit.usePopoverStore({ placement: 'top' });
   const popoverOpen = Ariakit.useStoreState(popover, 'open');
   const disclosureRef = useRef<HTMLButtonElement>(null);
@@ -114,6 +136,39 @@ function TokenUsageIndicator({
    *  the popover for a conversation the user has navigated away from. */
   useEffect(() => cancelTimers, [cancelTimers, conversationId]);
 
+  const openDetails = useCallback(
+    (anchor: HTMLElement) => {
+      cancelTimers();
+      if (gaugeHidden) {
+        popover.setAnchorElement(anchor);
+      }
+      setFocusOnShow(true);
+      pinnedRef.current = true;
+      popover.show();
+    },
+    [cancelTimers, gaugeHidden, popover],
+  );
+
+  const warningLevel = getContextWarningLevel(view.percent, view.maxTokens);
+  const showWarning =
+    warningSlot != null &&
+    warningLevel !== 'none' &&
+    isContextWarningVisible({
+      level: warningLevel,
+      dismissed: warningState.dismissed,
+      suppressed: warningState.suppressed,
+    });
+
+  /** With the gauge hidden the details hang from the warning's button: when
+   *  the warning goes, they go with it instead of floating unanchored. */
+  useEffect(() => {
+    if (!gaugeHidden || showWarning) {
+      return;
+    }
+    popover.hide();
+    popover.setAnchorElement(null);
+  }, [gaugeHidden, showWarning, popover]);
+
   const canResolveLangfuseSession =
     langfuseConnectionAccess &&
     popoverOpen &&
@@ -147,71 +202,89 @@ function TokenUsageIndicator({
 
   return (
     <>
+      {showWarning &&
+        createPortal(
+          <ContextWarning
+            level={warningLevel}
+            percent={view.percent}
+            onNewChat={() => continueInNewChat()}
+            onCompact={compactionAvailable ? compaction.compact : undefined}
+            isCompacting={compaction.isCompacting}
+            onHandoff={handoff.start}
+            canHandoff={handoff.canStart}
+            isHandoffRunning={handoff.isRunning}
+            onDetails={openDetails}
+            onDismiss={() => warningState.dismiss(warningLevel)}
+          />,
+          warningSlot,
+        )}
       {/* Hover shows the breakdown; the disclosure keeps click / Enter / Space
           working for touch and keyboard users. Taps also emit pointer
           enter/leave, so the hover timers are gated to hover-capable pointers
           or a tap would hide the popover it just opened. */}
-      <Ariakit.PopoverDisclosure
-        ref={disclosureRef}
-        store={popover}
-        type="button"
-        data-testid="token-usage"
-        aria-label={ariaLabel}
-        aria-busy={compaction.isCompacting}
-        aria-haspopup="dialog"
-        onPointerDown={() => {
-          pinAtPointerDownRef.current = pinnedRef.current;
-        }}
-        onPointerEnter={(e) => {
-          if (e.pointerType !== 'touch') {
-            openByPointer();
-          }
-        }}
-        onPointerLeave={(e) => {
-          if (e.pointerType !== 'touch') {
-            scheduleHide();
-          }
-        }}
-        onClick={(e) => {
-          cancelTimers();
-          e.preventDefault();
-          /** Mouse clicks (detail > 0) decide from the pointerdown snapshot:
-           *  the pointerdown may have hidden the popover and cleared the live
-           *  pin before this handler ran. Keyboard clicks carry no pointerdown,
-           *  so the live pin state is the truth there. */
-          const wasPinned = e.detail > 0 ? pinAtPointerDownRef.current : pinnedRef.current;
-          if (wasPinned) {
-            pinnedRef.current = false;
-            popover.hide();
-            return;
-          }
-          if (!popover.getState().open) {
-            setFocusOnShow(true);
-          }
-          pinnedRef.current = true;
-          popover.show();
-        }}
-        className={cn(
-          'flex size-theme-control items-center justify-center rounded-theme-control-round transition-colors',
-          'hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary',
-          'duration-300 animate-in fade-in zoom-in-95',
-        )}
-      >
-        {showCompactingIndicator ? (
-          <Spinner className="size-5 text-text-secondary" />
-        ) : (
-          <span
-            role="meter"
-            aria-valuemin={0}
-            aria-valuemax={hasMax ? view.maxTokens : undefined}
-            aria-valuenow={view.usedTokens}
-            aria-label={localize('com_ui_context_usage')}
-            className="flex items-center justify-center"
-          >
-            <Gauge percent={view.percent} indeterminate={!hasMax} />
-          </span>
-        )}
-      </Ariakit.PopoverDisclosure>
+      {!gaugeHidden && (
+        <Ariakit.PopoverDisclosure
+          ref={disclosureRef}
+          store={popover}
+          type="button"
+          data-testid="token-usage"
+          aria-label={ariaLabel}
+          aria-busy={compaction.isCompacting}
+          aria-haspopup="dialog"
+          onPointerDown={() => {
+            pinAtPointerDownRef.current = pinnedRef.current;
+          }}
+          onPointerEnter={(e) => {
+            if (e.pointerType !== 'touch') {
+              openByPointer();
+            }
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType !== 'touch') {
+              scheduleHide();
+            }
+          }}
+          onClick={(e) => {
+            cancelTimers();
+            e.preventDefault();
+            /** Mouse clicks (detail > 0) decide from the pointerdown snapshot:
+             *  the pointerdown may have hidden the popover and cleared the live
+             *  pin before this handler ran. Keyboard clicks carry no pointerdown,
+             *  so the live pin state is the truth there. */
+            const wasPinned = e.detail > 0 ? pinAtPointerDownRef.current : pinnedRef.current;
+            if (wasPinned) {
+              pinnedRef.current = false;
+              popover.hide();
+              return;
+            }
+            if (!popover.getState().open) {
+              setFocusOnShow(true);
+            }
+            pinnedRef.current = true;
+            popover.show();
+          }}
+          className={cn(
+            'flex size-theme-control items-center justify-center rounded-theme-control-round transition-colors',
+            'hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary',
+            'duration-300 animate-in fade-in zoom-in-95',
+          )}
+        >
+          {showCompactingIndicator ? (
+            <Spinner className="size-5 text-text-secondary" />
+          ) : (
+            <span
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={hasMax ? view.maxTokens : undefined}
+              aria-valuenow={view.usedTokens}
+              aria-label={localize('com_ui_context_usage')}
+              className="flex items-center justify-center"
+            >
+              <Gauge percent={view.percent} indeterminate={!hasMax} />
+            </span>
+          )}
+        </Ariakit.PopoverDisclosure>
+      )}
       {/* Focus the labelled dialog on keyboard/click open so screen readers
           enter and announce the breakdown, and so focus stays contained instead
           of falling back to the body (which the composer's global focus logic
@@ -284,6 +357,7 @@ const TokenUsage = memo(function TokenUsage(props: TokenUsageProps) {
        *  (a cached config from an older release) must not receive the request,
        *  which it would run as an empty, billed ordinary turn. */
       compactionEnabled={startupConfig.compactionEnabled === true}
+      hideGauge={startupConfig.interface?.contextGauge === false}
     />
   );
 });
