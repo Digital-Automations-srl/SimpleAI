@@ -3106,7 +3106,25 @@ function codeExecResponses({ filename, toolCallId, finalText, code }, toolNames)
   };
 }
 
+const REJECTED_DOCUMENT_PREFIX = 'e2e-rejected';
+const REJECTED_DOCUMENT_ERROR =
+  "messages.0.content.1.document.source.base64.media_type: Input should be 'application/pdf'";
+
+function rejectedDocumentResponses(messages) {
+  const names = collectProviderFileNames(messages);
+  for (const name of names) {
+    if (name.startsWith(REJECTED_DOCUMENT_PREFIX)) {
+      return { responses: [''], thrownError: REJECTED_DOCUMENT_ERROR, thrownErrorStatus: 400 };
+    }
+  }
+  return null;
+}
+
 function resolveResponses({ graph, messages, text, toolNames }) {
+  /** A4: the provider rejects a document anywhere in the request, history included. */
+  const rejectedDocument = rejectedDocumentResponses(messages);
+  if (rejectedDocument) return rejectedDocument;
+
   const lifecycle = runFileLifecycle.responsesForText(text);
   if (lifecycle) return lifecycle;
 
