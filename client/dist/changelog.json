@@ -1,6 +1,14 @@
 {
-  "version": "2.3.0",
+  "version": "2.3.1",
   "entries": [
+    {
+      "version": "2.3.1",
+      "date": "2026-10-28",
+      "title": "Azioni degli agenti sempre visibili",
+      "changes": [
+        "Nella Libreria strumenti di un agente le sue Azioni compaiono anche se la chat aperta è con un modello e non con l'agente"
+      ]
+    },
     {
       "version": "2.3.0",
       "date": "2026-10-28",

@@ -1,0 +1,16 @@
+import { v as e } from './tanstack-vendor.2R6Ja_-H.js';
+import { P_ as t, f_ as n } from './hooks.OIrsuUZX.js';
+var r = (r, i) =>
+    e([n.insights, r], () => t.getInsights(r), {
+      keepPreviousData: !0,
+      refetchOnWindowFocus: !1,
+      ...i,
+    }),
+  i = (r, i) =>
+    e([n.insightsAccess, r ?? `anonymous`], () => t.getInsightsAccess(), {
+      retry: !1,
+      staleTime: 6e4,
+      refetchOnWindowFocus: !1,
+      ...i,
+    });
+export { r as n, i as t };
