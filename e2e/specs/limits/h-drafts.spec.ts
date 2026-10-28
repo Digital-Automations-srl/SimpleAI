@@ -14,6 +14,13 @@ import {
 } from '../mock/helpers';
 import { expectNotBroken, resetFakes, trackPageErrors } from './helpers';
 
+/**
+ * Known failures (fixme):
+ * - H1 ◆ l'allegato resta cambiando chat e tornando: filesDraft_<id> è rimosso al cambio di chat
+ *   dalla sidebar (useAutoSave setFiles(new Map())); il testo della bozza resta, l'allegato si perde.
+ *   Spec §3: nessuna perdita di allegati.
+ */
+
 const NOTE_NAME = 'e2e-note.txt';
 const NOTE_CONTENT = readFileSync(join(__dirname, 'fixtures', NOTE_NAME), 'utf8');
 
@@ -120,5 +127,27 @@ test('H1 · "Nuova chat" svuota gli allegati e non lascia la bozza della chat pr
   await expect(page).toHaveURL(/\/c\/new/);
   await expect(composer(page)).toHaveValue('');
   await expect(page.getByText(NOTE_NAME)).toHaveCount(0);
+  await expectNotBroken(page, errors);
+});
+
+test("H1 ◆ useNewChat · l'allegato resta cambiando chat e tornando", async ({ page }) => {
+  test.fixme(
+    true,
+    "H1: fallimento noto — filesDraft_<id> rimosso al cambio di chat (useAutoSave setFiles(new Map())), il testo resta ma l'allegato si perde",
+  );
+  const errors = trackPageErrors(page);
+  const draft = `bozza H1 ${Date.now()}`;
+  const first = await createConversation(page, 'h1-att-a');
+  const second = await createConversation(page, 'h1-att-b');
+  await page.goto(first);
+  await fillDraft(page, draft);
+
+  await page.getByTestId('convo-item').nth(0).click();
+  await expect(page).toHaveURL(second);
+  await page.getByTestId('convo-item').nth(1).click();
+  await expect(page).toHaveURL(first);
+
+  await expect(composer(page)).toHaveValue(draft);
+  await expect(page.getByText(NOTE_NAME)).toBeVisible();
   await expectNotBroken(page, errors);
 });
