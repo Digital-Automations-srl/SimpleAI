@@ -169,10 +169,14 @@ async function expectChatContinues(
   operationId: string,
   label: string,
   errors: string[],
+  toolEcho: RegExp,
 ) {
   await expect(messagesView(page).getByText(`E2E action done ${operationId}`)).toBeVisible({
     timeout: 60_000,
   });
+  /** The fake model echoes what the tool returned: the agent saw the outcome, not just "done". */
+  /** (500: the error reached the model; slow: the late ok result; huge: the 2 MB body arrives truncated.) */
+  await expect(messagesView(page).getByText(toolEcho)).toBeVisible();
   /** The model closes with "done" after any tool outcome, so prove the endpoint was reached. */
   const path = { e2eError: '/error', e2eSlow: '/slow', e2eHuge: '/huge' }[operationId];
   expect(await actionHits(path!), `l'endpoint ${path} deve essere stato chiamato`).toBeGreaterThan(
@@ -183,28 +187,46 @@ async function expectChatContinues(
   await expectNotBroken(page, errors);
 }
 
-test('F4 · Action che risponde 500 → la chat risponde e continua', async ({ page }) => {
+test('F4 ○ 500 · Action che risponde 500 → la chat risponde e continua', async ({ page }) => {
   const errors = trackPageErrors(page);
   const { agent } = await createAgentWithAction(page);
   await chatWithAgent(page, agent.id);
   await sendMessage(page, 'E2E_ACTION_CALL:e2eError');
-  await expectChatContinues(page, 'e2eError', 'f4-error', errors);
+  await expectChatContinues(
+    page,
+    'e2eError',
+    'f4-error',
+    errors,
+    /tool-result len=\d+\] .*status 500/,
+  );
 });
 
-test('F4 · Action in timeout → la chat risponde e continua', async ({ page }) => {
+test('F4 ○ timeout · Action in timeout → la chat risponde e continua', async ({ page }) => {
   test.setTimeout(120_000);
   const errors = trackPageErrors(page);
   const { agent } = await createAgentWithAction(page);
   await setFakeBehavior('action', { slowMs: SLOW_MS });
   await chatWithAgent(page, agent.id);
   await sendMessage(page, 'E2E_ACTION_CALL:e2eSlow');
-  await expectChatContinues(page, 'e2eSlow', 'f4-slow', errors);
+  await expectChatContinues(
+    page,
+    'e2eSlow',
+    'f4-slow',
+    errors,
+    /tool-result len=\d+\] .*E2E action slow ok/,
+  );
 });
 
-test('F4 · Action con payload enorme → la chat risponde e continua', async ({ page }) => {
+test('F4 ○ payload · Action con payload enorme → la chat risponde e continua', async ({ page }) => {
   const errors = trackPageErrors(page);
   const { agent } = await createAgentWithAction(page);
   await chatWithAgent(page, agent.id);
   await sendMessage(page, 'E2E_ACTION_CALL:e2eHuge');
-  await expectChatContinues(page, 'e2eHuge', 'f4-huge', errors);
+  await expectChatContinues(
+    page,
+    'e2eHuge',
+    'f4-huge',
+    errors,
+    /tool-result len=\d{1,6}\] \{"result":"xxx/,
+  );
 });

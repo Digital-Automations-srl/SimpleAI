@@ -16,10 +16,11 @@ import {
   sendMessageAndWaitForCompletion,
   uniqueName,
 } from '../mock/helpers';
-import { expectNotBroken, resetFakes, trackPageErrors } from './helpers';
+import { expectNotBroken, localeText, resetFakes, trackPageErrors } from './helpers';
 
 const REMOVED_MODEL = 'mock-model-removed';
-const STALE_MODEL_ERROR = /is not available for Mock Provider A/;
+/** Full message, including the "select a different model" invitation (F6 expected outcome). */
+const STALE_MODEL_ERROR = localeText('com_error_illegal_model_request');
 
 /**
  * NOT covered here: the production Azure path. The `Model named "gpt-5" not found in

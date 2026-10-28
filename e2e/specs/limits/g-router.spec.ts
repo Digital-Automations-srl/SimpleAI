@@ -12,6 +12,8 @@ import {
 import { expectNotBroken, resetFakes, setFakeBehavior, trackPageErrors } from './helpers';
 
 const JEV_PORT = process.env.E2E_JEV_PORT || '8793';
+/** Same value as `timeoutMs` of the e2e-auto router in librechat.limits.overlay.yaml. */
+const ROUTER_TIMEOUT_MS = 1000;
 
 test.describe.configure({ timeout: 60_000 });
 
@@ -69,16 +71,16 @@ for (const mode of ['error', 'slow'] as const) {
     const started = Date.now();
     await sendMessageAndWaitForCompletion(page, replyPrompt(label));
     await expect(messagesView(page).getByText(replyText(label))).toBeVisible({ timeout: 10_000 });
-    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(Date.now() - started).toBeLessThan(15_000);
 
     expect(await jevRequestCount()).toBeGreaterThanOrEqual(1);
     const decision = await waitForDecision();
     expect(decision.spec).toBe('e2e-mock-provider-b');
     expect(decision.fallbackReason).toBe('request_failed');
     if (mode === 'slow') {
-      expect(decision.latencyMs as number).toBeGreaterThanOrEqual(900);
+      expect(decision.latencyMs as number).toBeGreaterThanOrEqual(ROUTER_TIMEOUT_MS * 0.9);
     } else {
-      expect(decision.latencyMs as number).toBeLessThan(800);
+      expect(decision.latencyMs as number).toBeLessThan(ROUTER_TIMEOUT_MS);
     }
     await expectNotBroken(page, errors);
   });

@@ -8,7 +8,7 @@ import {
   selectModelSpec,
   sendMessage,
 } from '../mock/helpers';
-import { expectNotBroken, resetFakes, trackPageErrors } from './helpers';
+import { expectNotBroken, localeText, resetFakes, trackPageErrors } from './helpers';
 
 /**
  * Known failure (A4, saas-8): the provider rejects the PDF with a 400, but the rejected
@@ -17,7 +17,7 @@ import { expectNotBroken, resetFakes, trackPageErrors } from './helpers';
  * first-turn test (readable error) is enforced.
  */
 
-const PROVIDER_ERROR = /The model provider could not complete this request/;
+const PROVIDER_ERROR = localeText('com_error_upstream_model');
 const REJECTED_PDF = path.join(__dirname, 'fixtures', 'e2e-rejected.pdf');
 
 test.afterEach(async () => {

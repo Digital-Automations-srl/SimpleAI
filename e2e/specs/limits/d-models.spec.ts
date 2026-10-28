@@ -9,13 +9,19 @@ import {
   sendMessage,
   sendMessageAndWaitForCompletion,
 } from '../mock/helpers';
-import { expectNotBroken, resetFakes, setFakeBehavior, trackPageErrors } from './helpers';
+import {
+  expectNotBroken,
+  localeText,
+  resetFakes,
+  setFakeBehavior,
+  trackPageErrors,
+} from './helpers';
 
 const FALLBACK_REPLY = 'E2E fallback reply';
 /** Same note the UI-only fallback test in mock/simpleai.spec.ts looks for. */
-const FALLBACK_NOTE = /was temporarily unavailable/;
+const FALLBACK_NOTE = localeText('com_ui_model_fallback_note');
 /** The readable error banner; the provider status may follow in parentheses. */
-const PROVIDER_ERROR = /The model provider could not complete this request/;
+const PROVIDER_ERROR = localeText('com_error_upstream_model');
 
 test.afterEach(async () => {
   await resetFakes();
@@ -32,24 +38,27 @@ test('D1 ⚠ saas-3,7 · 429 prima del primo token → risposta dal ripiego con 
   const errors = trackPageErrors(page);
   await openProviderA(page);
   await sendMessage(page, 'E2E_STATUS_ERROR:429:d1');
+  await expect(messagesView(page).getByText('E2E_STATUS_ERROR:429:d1')).toBeVisible();
   await expect(messagesView(page).getByText(FALLBACK_REPLY)).toBeVisible({ timeout: 30_000 });
   await expect(messagesView(page).getByText(FALLBACK_NOTE)).toBeVisible();
   await expectNotBroken(page, errors);
 });
 
-test('D1 · 529 overloaded → stesso esito', async ({ page }) => {
+test('D1 ⚠ saas-3,7 · 529 overloaded → stesso esito', async ({ page }) => {
   const errors = trackPageErrors(page);
   await openProviderA(page);
   await sendMessage(page, 'E2E_STATUS_ERROR:529:d1-overloaded');
+  await expect(messagesView(page).getByText('E2E_STATUS_ERROR:529:d1-overloaded')).toBeVisible();
   await expect(messagesView(page).getByText(FALLBACK_REPLY)).toBeVisible({ timeout: 30_000 });
   await expect(messagesView(page).getByText(FALLBACK_NOTE)).toBeVisible();
   await expectNotBroken(page, errors);
 });
 
-test('D1 · un errore senza status non ripiega', async ({ page }) => {
+test('D1 ⚠ saas-3,7 · un errore senza status non ripiega', async ({ page }) => {
   const errors = trackPageErrors(page);
   await openProviderA(page);
   await sendMessage(page, 'E2E_STATUS_ERROR::d1-plain');
+  await expect(messagesView(page).getByText('E2E_STATUS_ERROR::d1-plain')).toBeVisible();
   await expect(messagesView(page).getByText(PROVIDER_ERROR)).toBeVisible({ timeout: 30_000 });
   await expect(messagesView(page).getByText(FALLBACK_REPLY)).toHaveCount(0);
   await expect(messagesView(page).getByText(FALLBACK_NOTE)).toHaveCount(0);
@@ -65,6 +74,7 @@ test('D2 ⚠ più host · tutta la catena in errore → errore leggibile e la ch
   await openProviderA(page);
   await setFakeBehavior('label', { chatMode: 'error' });
   await sendMessage(page, 'E2E_STATUS_ERROR:429:d2');
+  await expect(messagesView(page).getByText('E2E_STATUS_ERROR:429:d2')).toBeVisible();
   await expect(messagesView(page).getByText(PROVIDER_ERROR)).toBeVisible({ timeout: 120_000 });
   await expect(messagesView(page).getByText(FALLBACK_REPLY)).toHaveCount(0);
 

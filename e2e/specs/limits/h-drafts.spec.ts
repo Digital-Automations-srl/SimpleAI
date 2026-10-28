@@ -86,7 +86,7 @@ test('H1 ◆ useNewChat · la bozza resta dopo reload', async ({ page }) => {
   await expectNotBroken(page, errors);
 });
 
-test('H1 · la bozza resta cambiando chat e tornando', async ({ page }) => {
+test('H1 ◆ useNewChat · la bozza resta cambiando chat e tornando', async ({ page }) => {
   const errors = trackPageErrors(page);
   const draft = `bozza H1 ${Date.now()}`;
   const first = await createConversation(page, 'h1-switch-a');
@@ -107,14 +107,13 @@ test('H1 · la bozza resta cambiando chat e tornando', async ({ page }) => {
   await expect(page).toHaveURL(first);
 
   await expect(composer(page)).toHaveValue(draft);
-  /** Observed (not a contract of the brief, which expects the text): leaving a conversation through
-   * the sidebar drops its attachment draft (filesDraft_<id> removed, chip not restored) while the
-   * text draft survives. Upstream clears attachments on switch (useAutoSave) and no upstream test
-   * promises they come back, so it is deliberately not asserted here. */
+  /** The attachment draft is lost on this round trip while the text survives: product defect
+   * (spec §3, no loss of attachments), covered by the fixme test "l'allegato resta cambiando chat
+   * e tornando" below. */
   await expectNotBroken(page, errors);
 });
 
-test('H1 · "Nuova chat" svuota gli allegati e non lascia la bozza della chat precedente', async ({
+test('H1 ◆ useNewChat · "Nuova chat" svuota gli allegati e non lascia la bozza della chat precedente', async ({
   page,
 }) => {
   const errors = trackPageErrors(page);

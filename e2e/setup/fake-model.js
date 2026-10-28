@@ -1300,17 +1300,20 @@ function actionCallResponses(operationId, toolNames) {
   let invocation = 0;
   return {
     responses: [''],
-    resolveInvocation: async () => {
+    resolveInvocation: async (messages) => {
       invocation += 1;
+      const callId = `call_e2e_action_${operationId}`;
       if (invocation === 1) {
         return {
           response: '',
-          toolCalls: [
-            { id: `call_e2e_action_${operationId}`, name: toolName, args: {}, type: 'tool_call' },
-          ],
+          toolCalls: [{ id: callId, name: toolName, args: {}, type: 'tool_call' }],
         };
       }
-      return { response: `E2E action done ${operationId}` };
+      /** Echo what the tool returned, so specs can prove the model saw the Action outcome. */
+      const result = getContentText(findLastToolMessage(messages, callId)?.content);
+      return {
+        response: `E2E action done ${operationId} [tool-result len=${result.length}] ${result.slice(0, 80)}`,
+      };
     },
   };
 }
