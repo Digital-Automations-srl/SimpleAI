@@ -35,6 +35,9 @@ export default defineConfig({
       timeout: 60_000,
       reuseExistingServer: false,
     },
-    appServer,
+    {
+      ...appServer,
+      env: { ...(appServer.env as Record<string, string>), TYPESAFE_API_KEY: 'e2e-jev-key' },
+    },
   ],
 } as Parameters<typeof defineConfig>[0]);

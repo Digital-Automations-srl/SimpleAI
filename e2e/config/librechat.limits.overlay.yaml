@@ -19,6 +19,12 @@ modelSpecs:
         endpoint: 'Mock Provider A'
         model: 'mock-model-a'
         maxContextTokens: 1100
+    # G1: the base e2e-auto router talks to the fake jev (TYPESAFE_API_KEY is set only in the
+    # limits server env, so the shared mock suite keeps exercising the missing-key path).
+    - name: 'e2e-auto'
+      router:
+        baseURL: 'http://127.0.0.1:8793'
+        timeoutMs: 1000
 
 # E1a: summarization is only viable from ~1024 effective tokens (MIN_SUMMARIZATION_CONTEXT_TOKENS),
 # so maxContextTokens is 1100 and each turn carries ~1200 characters (~300 tokens): four turns overflow.
