@@ -1,3 +1,13 @@
+/**
+ * Limits suite (design: docs/superpowers/specs/2026-10-28-suite-e2e-limiti-design.md).
+ * Run with `npm run e2e:limits` (sets E2E_LIMITS=true; without it the overlay is off).
+ *
+ * Known failures, kept as test.fixme until the product is fixed (case ID, spec, behavior):
+ * - A4 (saas-8) · a-documents.spec.ts · after a provider-rejected PDF the document stays in the
+ *   history and is re-sent every turn: the next message gets the same 400.
+ * - H1 · h-drafts.spec.ts · the attachment is lost when switching chat and coming back
+ *   (filesDraft_<id> removed by useAutoSave setFiles(new Map())); the text draft survives.
+ */
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
