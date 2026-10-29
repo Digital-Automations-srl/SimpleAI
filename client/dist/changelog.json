@@ -1,6 +1,16 @@
 {
-  "version": "2.3.1",
+  "version": "2.3.2",
   "entries": [
+    {
+      "version": "2.3.2",
+      "date": "2026-10-29",
+      "title": "Ripiego automatico più preciso",
+      "changes": [
+        "Quando un modello è sovraccarico e risponde un altro modello, la nota indica il nome esatto della configurazione usata, anche se due condividono lo stesso modello",
+        "La nota non compare più quando il modello di riserva ha solo riassunto la conversazione",
+        "Il costo delle risposte date da un modello di riserva è calcolato con il suo listino"
+      ]
+    },
     {
       "version": "2.3.1",
       "date": "2026-10-28",

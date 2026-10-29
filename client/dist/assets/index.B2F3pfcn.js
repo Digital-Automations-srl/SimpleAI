@@ -10073,11 +10073,14 @@ function tC({ conversationId: e, eventChildren: t, siblingParentMessageIds: n })
 function nC({ meta: e }) {
   let t = q(),
     { data: n } = Gl(),
-    r = (0, Q.useMemo)(
-      () => new Map((n?.modelSpecs?.list ?? []).map((e) => [e.preset.model, e.label])),
-      [n?.modelSpecs?.list],
-    ),
-    i = (e) => r.get(e) ?? e;
+    r = (0, Q.useMemo)(() => {
+      let e = n?.modelSpecs?.list ?? [];
+      return {
+        byName: new Map(e.map((e) => [e.name, e.label])),
+        byModel: new Map(e.map((e) => [e.preset.model, e.label])),
+      };
+    }, [n?.modelSpecs?.list]),
+    i = (e) => r.byName.get(e) ?? r.byModel.get(e) ?? e;
   return (0, $.jsx)(`p`, {
     className: `mt-1 text-xs text-text-secondary`,
     children: t(`com_ui_model_fallback_note`, { 0: e.to.map(i).join(`, `), 1: i(e.from) }),
