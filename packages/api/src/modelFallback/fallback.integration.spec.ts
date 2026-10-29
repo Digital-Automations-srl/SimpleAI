@@ -1,8 +1,8 @@
 import http from 'node:http';
 import { HumanMessage } from '@langchain/core/messages';
 import { Providers, tryFallbackProviders } from '@librechat/agents';
-import type { AddressInfo } from 'node:net';
 import type { FallbackConfig } from '@librechat/agents';
+import type { AddressInfo } from 'node:net';
 import { createModelFallbackGate } from './gate';
 
 /**
@@ -56,7 +56,7 @@ describe('model fallback inside @librechat/agents', () => {
         streaming: true,
         maxRetries: 0,
         configuration: { baseURL },
-        callbacks: [gate.fallbackCallback('fallback-model')],
+        callbacks: [gate.fallbackCallback({ name: 'fallback-model', model: 'fallback-model' })],
       },
     } as FallbackConfig,
   ];
@@ -90,7 +90,7 @@ describe('model fallback inside @librechat/agents', () => {
       }),
     ).rejects.toBe(primaryError);
     expect(requests).toBe(0);
-    expect(gate.getServedModels()).toEqual([]);
+    expect(gate.getServed()).toEqual([]);
   });
 
   it('never calls the fallback once the primary streamed text', async () => {

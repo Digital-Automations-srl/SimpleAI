@@ -6,6 +6,7 @@ import {
   MAX_AGENT_EVENT_ACTOR_TOOL_NAME_LENGTH,
 } from '@librechat/data-schemas';
 import type { IAgentEventActorSummary } from '@librechat/data-schemas';
+import { omitModelFallbacks } from '~/modelFallback/apply';
 
 export const AGENT_CONTEXT_FINGERPRINT_VERSION = 1;
 export const AGENT_GRAPH_SCHEMA_VERSION = 1;
@@ -320,7 +321,7 @@ export function createInitializedAgentContextFingerprint(input: {
       model: agent.model,
       instructions: agent.instructions,
       additionalInstructions: agent.additional_instructions,
-      modelParameters: agent.model_parameters,
+      modelParameters: omitModelFallbacks(agent.model_parameters),
       toolDefinitions: agent.toolDefinitions,
       toolRegistryDefinitions: agent.toolRegistryDefinitions,
       toolOptions: agent.tool_options,

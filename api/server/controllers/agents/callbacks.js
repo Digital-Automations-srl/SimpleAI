@@ -502,7 +502,7 @@ function getDefaultHandlers({
          *  the streamed/persisted cost matches the per-agent balance transaction;
          *  `agentId` is resolved here, not forwarded to the client or rollup. */
         const endpointTokenConfig = usageCost.resolveEndpointTokenConfig
-          ? usageCost.resolveEndpointTokenConfig({ agentId })
+          ? usageCost.resolveEndpointTokenConfig({ agentId, model: data.model })
           : usageCost.endpointTokenConfig;
         payload = {
           ...data,

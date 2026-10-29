@@ -10479,13 +10479,27 @@ describe('AgentClient.buildResponseMetadata model fallback (SimpleAI)', () => {
     const agent = { model: 'gpt-6-luna' };
     const gate = createModelFallbackGate();
     attachModelFallbackGate(agent, gate);
-    gate.fallbackCallback('claude-sonnet-5').handleLLMEnd();
+    gate.fallbackCallback({ name: 'claude-sonnet-5', model: 'claude-sonnet-5' }).handleLLMEnd();
     const client = Object.create(AgentClient.prototype);
     client.options = { agent };
 
     expect(client.buildResponseMetadata()).toMatchObject({
       modelFallback: { from: 'gpt-6-luna', to: ['claude-sonnet-5'] },
     });
+  });
+
+  it("prices a fallback's usage with the fallback's rates", () => {
+    const rates = { 'glm-5': { prompt: 1, completion: 2, context: 64000 } };
+    const primaryRates = { 'gpt-6-luna': { prompt: 3, completion: 4, context: 64000 } };
+    const agent = { model: 'gpt-6-luna' };
+    const gate = createModelFallbackGate({ primaryModel: 'gpt-6-luna' });
+    gate.fallbackCallback({ name: 'glm', model: 'glm-5', endpointTokenConfig: rates });
+    attachModelFallbackGate(agent, gate);
+    const client = Object.create(AgentClient.prototype);
+    client.options = { agent, endpointTokenConfig: primaryRates };
+
+    expect(client.resolveAgentEndpointTokenConfig({ model: 'glm-5' })).toBe(rates);
+    expect(client.resolveAgentEndpointTokenConfig({ model: 'gpt-6-luna' })).toBe(primaryRates);
   });
 
   it('records no fallback when the model answered itself', () => {

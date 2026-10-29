@@ -1,7 +1,8 @@
 import { logger } from '@librechat/data-schemas';
 import { parseCompactConvo } from 'librechat-data-provider';
-import type { FallbackConfig } from '@librechat/agents';
 import type { EndpointSchemaKey, TPreset } from 'librechat-data-provider';
+import type { FallbackConfig } from '@librechat/agents';
+import type { EndpointTokenConfig } from '~/types/tokens';
 import type { ModelFallbackGate } from './gate';
 import type { FallbackSpec } from './chain';
 
@@ -23,6 +24,7 @@ export interface FallbackEntry {
   provider: string;
   llmConfig: Record<string, unknown>;
   maxContextTokens?: number;
+  endpointTokenConfig?: EndpointTokenConfig;
 }
 
 /** Builds the client options of one fallback the way the primary model's are built. */
@@ -67,10 +69,15 @@ export async function buildModelFallbacks({
     const model = String(preset.model);
     try {
       const entry = await buildEntry(String(preset.endpoint), getSpecModelParameters(preset));
+      /** The spec's own window wins over the model's, as it does when the spec is the primary. */
+      const maxContextTokens =
+        typeof preset.maxContextTokens === 'number'
+          ? preset.maxContextTokens
+          : entry.maxContextTokens;
       if (
         minContextTokens != null &&
-        entry.maxContextTokens != null &&
-        entry.maxContextTokens < minContextTokens
+        maxContextTokens != null &&
+        maxContextTokens < minContextTokens
       ) {
         logger.debug(`[modelFallback] Skipping "${spec.name}": smaller context window`);
         continue;
@@ -80,9 +87,16 @@ export async function buildModelFallbacks({
         provider: entry.provider,
         clientOptions: {
           ...entry.llmConfig,
-          callbacks: [...callbacks, gate.fallbackCallback(model)],
+          callbacks: [
+            ...callbacks,
+            gate.fallbackCallback({
+              name: spec.name ?? model,
+              model,
+              endpointTokenConfig: entry.endpointTokenConfig,
+            }),
+          ],
         },
-        maxContextTokens: entry.maxContextTokens,
+        maxContextTokens,
       } as FallbackConfig);
     } catch (error) {
       logger.warn(`[modelFallback] Skipping fallback spec "${spec.name}"`, error);

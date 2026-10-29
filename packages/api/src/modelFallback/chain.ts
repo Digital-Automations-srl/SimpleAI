@@ -1,3 +1,5 @@
+import { logger } from '@librechat/data-schemas';
+
 /** The spec fields the fallback reads, loose enough for the deep-partial specs of the app config. */
 export interface FallbackSpec {
   name?: string;
@@ -18,12 +20,35 @@ export interface FallbackPrimary {
   spec?: string;
 }
 
+const warnedNames = new Set<string>();
+
+/** Once per name and process: the chain is resolved on every request. */
+function warnUnknownName(name: string | undefined): void {
+  const key = String(name);
+  if (warnedNames.has(key)) {
+    return;
+  }
+  warnedNames.add(key);
+  logger.warn(`[modelFallback] modelFallback.tiers: "${key}" is not a usable model spec, ignored`);
+}
+
 function isConcreteSpec(spec: FallbackSpec | undefined): spec is FallbackSpec {
   return spec != null && spec.router == null && !!spec.preset?.endpoint && !!spec.preset?.model;
 }
 
 function servesPrimary(spec: FallbackSpec, primary: FallbackPrimary): boolean {
   return spec.preset?.endpoint === primary.endpoint && spec.preset?.model === primary.model;
+}
+
+/** The spec the user picked when it serves the primary model. */
+export function findPrimarySpec(
+  specs: FallbackSpec[],
+  primary: FallbackPrimary,
+): FallbackSpec | undefined {
+  if (primary.spec == null) {
+    return undefined;
+  }
+  return specs.find((spec) => spec.name === primary.spec && servesPrimary(spec, primary));
 }
 
 /** Other providers first: a rate limit or an outage usually hits every deployment of a provider. */
@@ -59,7 +84,14 @@ export function resolveFallbackChain(
 ): FallbackSpec[] {
   const specsByName = new Map(specs.map((spec) => [spec.name, spec]));
   const tiers = (config?.tiers ?? []).map((tier) =>
-    tier.map((name) => specsByName.get(name)).filter(isConcreteSpec),
+    tier.flatMap((name) => {
+      const spec = specsByName.get(name);
+      if (isConcreteSpec(spec)) {
+        return [spec];
+      }
+      warnUnknownName(name);
+      return [];
+    }),
   );
   const primaryTier = findPrimaryTier(tiers, primary);
   if (primaryTier === -1) {

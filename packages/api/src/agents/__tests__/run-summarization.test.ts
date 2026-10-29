@@ -375,6 +375,39 @@ describe('agent endpoint projection', () => {
 // ---------------------------------------------------------------------------
 // Suite: custom endpoint stream usage defaults
 // ---------------------------------------------------------------------------
+describe('model fallback headers (SimpleAI)', () => {
+  it('resolves request placeholders in the headers of each fallback client', async () => {
+    const agents = await callAndCapture({
+      requestBody: { conversationId: 'conversation-1' } as never,
+      agents: [
+        makeAgent({
+          model_parameters: {
+            model: 'gpt-4o',
+            fallbacks: [
+              {
+                provider: 'openAI',
+                clientOptions: {
+                  model: 'gpt-6-luna',
+                  configuration: {
+                    defaultHeaders: { 'X-Conversation': '{{LIBRECHAT_BODY_CONVERSATIONID}}' },
+                  },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const [fallback] = (agents[0].clientOptions as Record<string, unknown>).fallbacks as Array<{
+      clientOptions: { configuration: { defaultHeaders: Record<string, string> } };
+    }>;
+    expect(fallback.clientOptions.configuration.defaultHeaders['X-Conversation']).toBe(
+      'conversation-1',
+    );
+  });
+});
+
 describe('custom endpoint stream usage defaults', () => {
   it('disables streamUsage by default for OpenAI-compatible custom endpoints', async () => {
     const agents = await callAndCapture({

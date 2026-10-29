@@ -2361,6 +2361,16 @@ export async function createRun({
       tenantId,
       body: requestBody,
     });
+    /** SimpleAI: the fallback clients send their own endpoints' headers, resolved the same way. */
+    for (const fallback of (agent.model_parameters as CallbackClientOptions | undefined)
+      ?.fallbacks ?? []) {
+      resolveConfigHeaders({
+        llmConfig: fallback.clientOptions as Partial<t.RunLLMConfig>,
+        user: createSafeUser(user),
+        tenantId,
+        body: requestBody,
+      });
+    }
 
     const modelParameters = normalizeAgentModelParameters(agent.model_parameters);
     const shapedSummarization = shapeSummarizationConfig(

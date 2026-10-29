@@ -185,6 +185,7 @@ const {
   markCompactionOutcome,
   resolvePersistableCodeEnvironmentDecision,
   getModelFallbackMeta,
+  resolveFallbackTokenConfig,
 } = require('@librechat/api');
 const {
   Run,
@@ -3694,6 +3695,14 @@ class AgentClient extends BaseClient {
    * @returns {import('@librechat/api').EndpointTokenConfig | undefined}
    */
   resolveAgentEndpointTokenConfig(usage) {
+    const fallbackRates = resolveFallbackTokenConfig({
+      usage,
+      primary: this.options.agent,
+      agents: this.agentConfigs,
+    });
+    if (fallbackRates) {
+      return fallbackRates.endpointTokenConfig;
+    }
     return resolveAgentTokenConfig({
       agentId: usage?.agentId,
       byAgentId: this.options.endpointTokenConfigByAgentId,

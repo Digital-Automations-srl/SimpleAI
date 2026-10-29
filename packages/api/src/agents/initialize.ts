@@ -108,6 +108,7 @@ import {
 import { extractAgentContent, extractSkillContent } from '../protection/adapters/submissions';
 import { createConfiguredContentInspector, inspectContent } from '../protection/runtime';
 import { assertAgentAttachmentLimits, isModelBoundAttachmentFile } from './attachments';
+import { applyModelFallbacks, attachModelFallbackGate } from '~/modelFallback';
 import { resolveAttachedWorkspaceCommandTimeoutMax } from '~/code/command';
 import { assertModelBoundContent } from '../middleware/modelBoundContent';
 import { isImplicitStatefulCodeRouteAvailable } from '../code/config';
@@ -120,7 +121,6 @@ import { resolveTurnDeliveryRouting } from './files/delivery';
 import { filterFilesByEndpointRuntimeConfig } from '~/files';
 import { hasActiveFileFieldPolicy } from '~/protection';
 import { PARTIAL_RESOLVED_CONVERSATION } from './guard';
-import { applyModelFallbacks, attachModelFallbackGate } from '~/modelFallback';
 import { applyBackgroundToolCalls } from './background';
 import { applyTurnDelivery } from './files/delivery';
 import { generateArtifactsPrompt } from '~/prompts';
@@ -1409,6 +1409,7 @@ export async function initializeAgent(
           ],
           fallbackOptions.endpointTokenConfig,
         ),
+        endpointTokenConfig: fallbackOptions.endpointTokenConfig,
       };
     },
   });

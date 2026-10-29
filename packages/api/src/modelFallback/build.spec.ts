@@ -45,6 +45,46 @@ describe('buildModelFallbacks', () => {
   });
 });
 
+describe('buildModelFallbacks spec settings', () => {
+  const buildEntry: BuildFallbackEntry = async (_endpoint, modelParameters) => ({
+    provider: 'openAI',
+    llmConfig: { model: modelParameters.model },
+    maxContextTokens: 1000000,
+    endpointTokenConfig: { 'glm-5': { prompt: 1, completion: 2, context: 64000 } },
+  });
+  const glm = (maxContextTokens?: number): FallbackSpec[] => [
+    { name: 'glm', preset: { endpoint: 'openAI', model: 'glm-5', maxContextTokens } },
+  ];
+
+  it("uses the spec's context window over the model's", async () => {
+    const gate = createModelFallbackGate();
+    const [fallback] = await buildModelFallbacks({ chain: glm(64000), gate, buildEntry });
+    expect(fallback.maxContextTokens).toBe(64000);
+
+    const skipped = await buildModelFallbacks({
+      chain: glm(64000),
+      gate,
+      buildEntry,
+      minContextTokens: 128000,
+    });
+    expect(skipped).toHaveLength(0);
+  });
+
+  it("keeps the model's window when the spec sets none", async () => {
+    const gate = createModelFallbackGate();
+    const [fallback] = await buildModelFallbacks({ chain: glm(), gate, buildEntry });
+    expect(fallback.maxContextTokens).toBe(1000000);
+  });
+
+  it("hands the fallback's rates to the gate", async () => {
+    const gate = createModelFallbackGate();
+    await buildModelFallbacks({ chain: glm(), gate, buildEntry });
+    expect(gate.getTokenConfig('glm-5')).toEqual({
+      endpointTokenConfig: { 'glm-5': { prompt: 1, completion: 2, context: 64000 } },
+    });
+  });
+});
+
 describe('getSpecModelParameters', () => {
   it('keeps the model parameters of the spec and drops its presentation fields', () => {
     const parameters = getSpecModelParameters({

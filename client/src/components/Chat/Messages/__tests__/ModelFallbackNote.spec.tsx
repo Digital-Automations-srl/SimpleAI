@@ -48,6 +48,16 @@ describe('ModelFallbackNote', () => {
     ).toBeInTheDocument();
   });
 
+  it('tells apart specs sharing a model by their names', () => {
+    mockStartupConfig.current?.modelSpecs?.list.push({
+      name: 'auto-sonnet',
+      label: 'Automatico Sonnet',
+      preset: { endpoint: 'anthropic', model: 'claude-sonnet-5' },
+    } as never);
+    render(<ModelFallbackNote meta={{ from: 'luna', to: ['sonnet-5'] }} />);
+    expect(screen.getByText('com_ui_model_fallback_note|Sonnet 5|GPT-6 Luna')).toBeInTheDocument();
+  });
+
   it('renders nothing without a fallback', () => {
     const { container } = render(<ModelFallbackNote meta={undefined} />);
     expect(container).toBeEmptyDOMElement();

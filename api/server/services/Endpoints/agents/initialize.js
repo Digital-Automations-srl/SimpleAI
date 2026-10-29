@@ -15,6 +15,7 @@ const {
   getProviderConfig,
   discoverConnectedAgents,
   resolveAgentTokenConfig,
+  resolveFallbackTokenConfig,
   resolveAgentScopedSkillIds,
   resolveModelSpecSkillIds,
   getAgentStartupTelemetry,
@@ -1732,12 +1733,21 @@ const initializeClientWithProvider = async ({
   }
   /** Price emitted usage per producing agent too, so the streamed/persisted
    *  `metadata.usage.cost` matches the per-agent balance transaction. */
-  usageCost.resolveEndpointTokenConfig = (usage) =>
-    resolveAgentTokenConfig({
+  usageCost.resolveEndpointTokenConfig = (usage) => {
+    const fallbackRates = resolveFallbackTokenConfig({
+      usage,
+      primary: primaryConfig,
+      agents: agentConfigs,
+    });
+    if (fallbackRates) {
+      return fallbackRates.endpointTokenConfig;
+    }
+    return resolveAgentTokenConfig({
       agentId: usage?.agentId,
       byAgentId: endpointTokenConfigByAgentId,
       fallback: usageCost.endpointTokenConfig,
     });
+  };
 
   const eventTaskId = req._agentEventTaskId;
   const eventChildActivity =

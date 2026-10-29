@@ -238,14 +238,8 @@ test.describe('SimpleAI automatic model', () => {
 test.describe('SimpleAI model fallback', () => {
   const FALLBACK_NOTE = 'Answered by fallback-model: primary-model was temporarily unavailable.';
 
-  test('a response answered by a fallback model shows the note after reload', async ({ page }) => {
-    await openNewChat(page);
-    const label = uniqueName('fallback');
-    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
-    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
-    await expect(messagesView(page).getByText(FALLBACK_NOTE)).toHaveCount(0);
-
-    /** The fake model cannot hit a provider limit; the stored metadata is what the UI reads. */
+  /** The fake model cannot hit a provider limit; the stored metadata is what the UI reads. */
+  async function reportFallback(page: Page, modelFallback: { from: string; to: string[] }) {
     await page.route(/\/api\/messages\/[^/?]+$/, async (route) => {
       if (route.request().method() !== 'GET') {
         return route.continue();
@@ -259,16 +253,44 @@ test.describe('SimpleAI model fallback', () => {
               ...message,
               metadata: {
                 ...(message.metadata as object | undefined),
-                modelFallback: { from: 'primary-model', to: ['fallback-model'] },
+                modelFallback,
               },
             },
       );
       await route.fulfill({ response, json: withFallback });
     });
     await page.reload();
+  }
+
+  async function answer(page: Page) {
+    await openNewChat(page);
+    const label = uniqueName('fallback');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+    return label;
+  }
+
+  test('a response answered by a fallback model shows the note after reload', async ({ page }) => {
+    const label = await answer(page);
+    await expect(messagesView(page).getByText(FALLBACK_NOTE)).toHaveCount(0);
+
+    await reportFallback(page, { from: 'primary-model', to: ['fallback-model'] });
 
     await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
     await expect(messagesView(page).getByText(FALLBACK_NOTE)).toBeVisible();
+  });
+
+  test('the note names specs sharing a model by their own labels', async ({ page }) => {
+    await answer(page);
+
+    /** Both specs serve mock-model-a. */
+    await reportFallback(page, { from: 'e2e-mock-provider-a', to: ['e2e-icon-spec'] });
+
+    await expect(
+      messagesView(page).getByText(
+        'Answered by E2E Icon Spec: Mock Provider A was temporarily unavailable.',
+      ),
+    ).toBeVisible();
   });
 });
 

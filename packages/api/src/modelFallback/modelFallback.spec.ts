@@ -1,8 +1,12 @@
+import { logger } from '@librechat/data-schemas';
 import type { FallbackSpec } from './chain';
+import { createInitializedAgentContextFingerprint } from '~/agents/compatibility';
+import { getModelFallbackMeta, resolveFallbackTokenConfig } from './note';
+import { sanitizeResumeModelParameters } from '~/agents/hitl/policy';
+import { applyModelFallbacks, omitModelFallbacks } from './apply';
+import { resolveFallbackChain, findPrimarySpec } from './chain';
 import { attachModelFallbackGate } from './build';
 import { createModelFallbackGate } from './gate';
-import { resolveFallbackChain } from './chain';
-import { getModelFallbackMeta } from './note';
 
 const spec = (name: string, endpoint: string, model: string): FallbackSpec => ({
   name,
@@ -117,7 +121,122 @@ describe('getModelFallbackMeta', () => {
     const agent = { model: 'gpt-6-luna' };
     const gate = createModelFallbackGate();
     attachModelFallbackGate(agent, gate);
-    gate.fallbackCallback('claude-sonnet-5').handleLLMEnd();
+    gate.fallbackCallback({ name: 'claude-sonnet-5', model: 'claude-sonnet-5' }).handleLLMEnd();
     expect(getModelFallbackMeta(agent)).toEqual({ from: 'gpt-6-luna', to: ['claude-sonnet-5'] });
+  });
+});
+
+describe('unknown names in the tiers', () => {
+  it('are ignored with one warning per name', () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    const withTypo = {
+      tiers: [
+        ['h', 'haiku-typo'],
+        ['o', 'router'],
+      ],
+    };
+    const withRouter = [...specs, { name: 'router', router: { candidates: {} } }];
+    const primary = { endpoint: 'anthropic', model: 'claude-haiku-5-5' };
+
+    expect(names(resolveFallbackChain(withTypo, withRouter, primary))).toEqual(['o']);
+    resolveFallbackChain(withTypo, withRouter, primary);
+
+    const messages = warn.mock.calls.map(([message]) => String(message));
+    expect(messages.filter((message) => message.includes('"haiku-typo"'))).toHaveLength(1);
+    expect(messages.filter((message) => message.includes('"router"'))).toHaveLength(1);
+    warn.mockRestore();
+  });
+});
+
+describe('findPrimarySpec', () => {
+  it('is the picked spec only when it serves the primary model', () => {
+    expect(
+      findPrimarySpec(specs, { endpoint: 'anthropic', model: 'claude-sonnet-5', spec: 's' }),
+    ).toMatchObject({ name: 's' });
+    expect(
+      findPrimarySpec(specs, { endpoint: 'anthropic', model: 'claude-opus-4-8', spec: 's' }),
+    ).toBeUndefined();
+    expect(
+      findPrimarySpec(specs, { endpoint: 'anthropic', model: 'claude-sonnet-5' }),
+    ).toBeUndefined();
+  });
+});
+
+describe('applyModelFallbacks', () => {
+  const buildEntry = async (_endpoint: string, parameters: Record<string, unknown>) => ({
+    provider: 'anthropic',
+    llmConfig: { model: parameters.model },
+  });
+
+  it('names the primary by its spec in the note', async () => {
+    const agent = { model: 'claude-sonnet-5' };
+    const gate = await applyModelFallbacks({
+      llmConfig: {},
+      primary: { endpoint: 'anthropic', model: 'claude-sonnet-5', spec: 's' },
+      appConfig: { config: { modelFallback: config }, modelSpecs: { list: specs } },
+      buildEntry,
+    });
+    if (gate == null) {
+      throw new Error('expected a gate');
+    }
+    attachModelFallbackGate(agent, gate);
+    gate.fallbackCallback({ name: 'o', model: 'claude-opus-4-8' }).handleLLMEnd();
+
+    expect(getModelFallbackMeta(agent)).toEqual({ from: 's', to: ['o'] });
+  });
+});
+
+describe('resolveFallbackTokenConfig', () => {
+  const rates = { 'glm-5': { prompt: 1, completion: 2, context: 64000 } };
+
+  it("finds the rates on the producing agent's gate", () => {
+    const primary = { model: 'gpt-6-luna' };
+    const connected = { model: 'claude-sonnet-5' };
+    const gate = createModelFallbackGate();
+    gate.fallbackCallback({ name: 'glm', model: 'glm-5', endpointTokenConfig: rates });
+    attachModelFallbackGate(connected, gate);
+    const agents = new Map<string, unknown>([['agent_b', connected]]);
+
+    expect(
+      resolveFallbackTokenConfig({
+        usage: { agentId: 'agent_b', model: 'glm-5' },
+        primary,
+        agents,
+      }),
+    ).toEqual({ endpointTokenConfig: rates });
+    expect(
+      resolveFallbackTokenConfig({
+        usage: { agentId: 'agent_a', model: 'glm-5' },
+        primary,
+        agents,
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('fallbacks outside resume and context fingerprint', () => {
+  const withFallbacks = {
+    model: 'gpt-6-luna',
+    temperature: 0.2,
+    fallbacks: [{ provider: 'anthropic', clientOptions: { model: 'claude-sonnet-5' } }],
+  };
+  const { fallbacks: _fallbacks, ...withoutFallbacks } = withFallbacks;
+
+  it('omitModelFallbacks drops only the chain', () => {
+    expect(omitModelFallbacks(withFallbacks)).toEqual(withoutFallbacks);
+    expect(omitModelFallbacks(undefined)).toBeUndefined();
+  });
+
+  it('resume params never carry the chain', () => {
+    expect(sanitizeResumeModelParameters(withFallbacks)).not.toHaveProperty('fallbacks');
+  });
+
+  it('the chain does not change the agent context fingerprint', () => {
+    const fingerprint = (model_parameters: object) =>
+      createInitializedAgentContextFingerprint({
+        agents: [{ id: 'agent', provider: 'openAI', model: 'gpt-6-luna', model_parameters }],
+      } as never).digest;
+
+    expect(fingerprint(withFallbacks)).toBe(fingerprint(withoutFallbacks));
   });
 });

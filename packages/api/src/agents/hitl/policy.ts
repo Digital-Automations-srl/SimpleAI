@@ -3,6 +3,7 @@ import { openAIBaseSchema, googleBaseSchema, anthropicBaseSchema } from 'librech
 import type { Agents, TToolApprovalPolicy } from 'librechat-data-provider';
 import type { ToolPolicyConfig } from '@librechat/agents';
 import type { MCPToolAlias } from '~/tools/classification';
+import { omitModelFallbacks } from '~/modelFallback/apply';
 
 /**
  * Default decisions offered to the user for a paused tool call.
@@ -631,7 +632,7 @@ export function sanitizeResumeModelParameters(
   if (params == null || typeof params !== 'object' || Array.isArray(params)) {
     return undefined;
   }
-  const sanitized = sanitizeParamValue(params, 0) as Record<string, unknown>;
+  const sanitized = sanitizeParamValue(omitModelFallbacks(params), 0) as Record<string, unknown>;
   normalizeThinkingParam(sanitized);
   normalizeEffortParam(sanitized);
   return sanitized;

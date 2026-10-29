@@ -7,15 +7,16 @@ function FallbackNote({ meta }: { meta: TModelFallbackMeta }) {
   const localize = useLocalize();
   const { data: startupConfig } = useGetStartupConfig();
 
-  const labels = useMemo(
-    () =>
-      new Map(
-        (startupConfig?.modelSpecs?.list ?? []).map((spec) => [spec.preset.model, spec.label]),
-      ),
-    [startupConfig?.modelSpecs?.list],
-  );
+  /** The note names specs; notes saved before that named models, labelled by the model's spec. */
+  const labels = useMemo(() => {
+    const specs = startupConfig?.modelSpecs?.list ?? [];
+    return {
+      byName: new Map(specs.map((spec) => [spec.name, spec.label])),
+      byModel: new Map(specs.map((spec) => [spec.preset.model, spec.label])),
+    };
+  }, [startupConfig?.modelSpecs?.list]);
 
-  const labelOf = (model: string) => labels.get(model) ?? model;
+  const labelOf = (name: string) => labels.byName.get(name) ?? labels.byModel.get(name) ?? name;
   return (
     <p className="mt-1 text-xs text-text-secondary">
       {localize('com_ui_model_fallback_note', {
