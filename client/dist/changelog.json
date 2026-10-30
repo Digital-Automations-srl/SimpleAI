@@ -1,6 +1,17 @@
 {
-  "version": "2.3.2",
+  "version": "2.3.3",
   "entries": [
+    {
+      "version": "2.3.3",
+      "date": "2026-10-29",
+      "title": "Il modello di riserva lavora come il tuo",
+      "changes": [
+        "Quando un modello è sovraccarico, quello di riserva risponde subito, senza minuti di attesa",
+        "Il modello di riserva segue le istruzioni dell'agente e può usare i suoi strumenti",
+        "I documenti allegati arrivano anche al modello di riserva",
+        "Se interrompi una risposta mentre il modello è sovraccarico, non ti vengono addebitati token"
+      ]
+    },
     {
       "version": "2.3.2",
       "date": "2026-10-29",
