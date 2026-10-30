@@ -49,6 +49,8 @@ export async function applyModelFallbacks({
   const callbacks = Array.isArray(llmConfig.callbacks) ? llmConfig.callbacks : [];
   llmConfig.callbacks = [...callbacks, gate.primaryCallback];
   llmConfig.fallbacks = fallbacks;
+  /** Retrying a rate-limited model keeps the user waiting minutes before the fallback answers. */
+  llmConfig.maxRetries = 0;
   return gate;
 }
 

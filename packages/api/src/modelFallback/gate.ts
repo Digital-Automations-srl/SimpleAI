@@ -57,6 +57,8 @@ export interface ModelFallbackGate {
   readonly from?: string;
   /** Fallback specs that answered the conversation, in order, without duplicates. */
   readonly getServed: () => string[];
+  /** The latest model call failed and nothing reached the user: no provider consumed tokens. */
+  readonly failedWithoutOutput: () => boolean;
   /**
    * The rates of the fallback that produced usage reported under `model`; undefined when no
    * fallback serves that model, so the caller keeps its own pricing.
@@ -71,6 +73,8 @@ interface CallState {
   failed: boolean;
   primaryError?: unknown;
   emitted: boolean;
+  /** The last fallback that failed in this call, so the next attempt names the real cause. */
+  lastFailure?: { name: string; error: unknown };
 }
 
 function readStatus(error: object): number | undefined {
@@ -110,15 +114,18 @@ function isSummarization(metadata?: Record<string, unknown>): boolean {
   return metadata?.summarization === true || metadata?.summarization_provider != null;
 }
 
-function describeError(error: unknown): string {
+/** One line: provider messages repeat the status and LangChain appends a troubleshooting URL. */
+export function describeError(error: unknown): string {
   if (typeof error !== 'object' || error === null) {
     return String(error);
   }
   const status = readStatus(error);
   const { message } = error as { message?: unknown };
-  return [status, typeof message === 'string' ? message : undefined]
-    .filter((part) => part != null)
-    .join(' ');
+  const firstLine = typeof message === 'string' ? message.split('\n')[0].trim() : '';
+  if (status == null) {
+    return firstLine;
+  }
+  return firstLine.startsWith(String(status)) ? firstLine : `${status} ${firstLine}`.trim();
 }
 
 function hasReasoning(content: unknown): boolean {
@@ -224,8 +231,10 @@ export function createModelFallbackGate({
         if (call.emitted || !isFallbackEligibleError(call.primaryError)) {
           throw call.primaryError ?? new Error('Model fallback blocked');
         }
+        const failed = call.lastFailure?.name ?? from ?? 'primary';
+        const cause = call.lastFailure?.error ?? call.primaryError;
         logger.info(
-          `[modelFallback] "${from ?? 'primary'}" failed (${describeError(call.primaryError)}), trying "${name}"`,
+          `[modelFallback] "${failed}" failed (${describeError(cause)}), trying "${name}"`,
         );
       },
       handleLLMNewToken(token, _idx, _runId, parentRunId, _tags, fields) {
@@ -234,8 +243,12 @@ export function createModelFallbackGate({
           call.emitted = true;
         }
       },
-      handleLLMError() {
-        /** A fallback failing for its own reasons leaves the decision to the primary's error. */
+      /** A fallback failing for its own reasons leaves the decision to the primary's error. */
+      handleLLMError(error, _runId, parentRunId) {
+        const call = attemptFor(parentRunId);
+        if (call) {
+          call.lastFailure = { name, error };
+        }
       },
       handleLLMEnd(_output, runId) {
         if (runId != null && summaryRuns.delete(runId)) {
@@ -252,6 +265,7 @@ export function createModelFallbackGate({
     fallbackCallback,
     from,
     getServed: () => [...served],
+    failedWithoutOutput: () => latest?.failed === true && !latest.emitted,
     getTokenConfig: (model: unknown) =>
       typeof model === 'string' && model !== '' ? tokenConfigs.get(model) : undefined,
   });

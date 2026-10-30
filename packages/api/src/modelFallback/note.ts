@@ -30,3 +30,11 @@ export function resolveFallbackTokenConfig({
   const agent = agentId != null && agents?.has(agentId) ? agents.get(agentId) : primary;
   return getModelFallbackGate(agent)?.getTokenConfig(usage?.model);
 }
+
+/**
+ * An aborted turn whose model failed and whose fallbacks produced nothing reached no provider
+ * that bills: the estimated usage recorded on abort would charge tokens nobody consumed.
+ */
+export function isUnbilledFallbackAbort(agent: unknown): boolean {
+  return getModelFallbackGate(agent)?.failedWithoutOutput() === true;
+}

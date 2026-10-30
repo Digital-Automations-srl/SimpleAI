@@ -11,6 +11,7 @@ import {
 } from '../mock/helpers';
 import {
   expectNotBroken,
+  fakeRequests,
   localeText,
   resetFakes,
   setFakeBehavior,
@@ -51,6 +52,24 @@ test('D1 ⚠ saas-3,7 · 529 overloaded → stesso esito', async ({ page }) => {
   await expect(messagesView(page).getByText('E2E_STATUS_ERROR:529:d1-overloaded')).toBeVisible();
   await expect(messagesView(page).getByText(FALLBACK_REPLY)).toBeVisible({ timeout: 30_000 });
   await expect(messagesView(page).getByText(FALLBACK_NOTE)).toBeVisible();
+  await expectNotBroken(page, errors);
+});
+
+test('D3 · il ripiego risponde con le istruzioni del modello scelto', async ({ page }) => {
+  const errors = trackPageErrors(page);
+  await openProviderA(page);
+  await sendMessage(page, 'E2E_STATUS_ERROR:429:d3');
+  await expect(messagesView(page).getByText(FALLBACK_REPLY)).toBeVisible({ timeout: 30_000 });
+
+  /** Live test on lbc (T193): the fallback got the user's message alone, no system prompt. */
+  const requests = await fakeRequests<{
+    stream: boolean;
+    prompt: string;
+    messages: Array<{ role: string; content: unknown }>;
+  }>('label');
+  const chat = requests.find((request) => request.stream && request.prompt.includes('d3'));
+  expect(chat?.messages[0]?.role).toBe('system');
+  expect(JSON.stringify(chat?.messages[0]?.content)).toContain('E2E_LIMITS_INSTRUCTIONS');
   await expectNotBroken(page, errors);
 });
 

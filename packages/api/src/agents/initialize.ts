@@ -1368,7 +1368,10 @@ export async function initializeAgent(
     primary: {
       endpoint: provider,
       model: agent.model ?? '',
-      spec: (requestBody as { spec?: string } | undefined)?.spec,
+      /** The runtime request body carries no spec: the endpoint option keeps the picked one. */
+      spec:
+        (endpointOption as { spec?: string } | undefined)?.spec ??
+        (requestBody as { spec?: string } | undefined)?.spec,
       maxContextTokens:
         typeof agentMaxContextTokens === 'number' ? agentMaxContextTokens : undefined,
     },

@@ -1,7 +1,7 @@
 import { logger } from '@librechat/data-schemas';
 import type { FallbackSpec } from './chain';
+import { getModelFallbackMeta, isUnbilledFallbackAbort, resolveFallbackTokenConfig } from './note';
 import { createInitializedAgentContextFingerprint } from '~/agents/compatibility';
-import { getModelFallbackMeta, resolveFallbackTokenConfig } from './note';
 import { sanitizeResumeModelParameters } from '~/agents/hitl/policy';
 import { applyModelFallbacks, omitModelFallbacks } from './apply';
 import { resolveFallbackChain, findPrimarySpec } from './chain';
@@ -183,6 +183,43 @@ describe('applyModelFallbacks', () => {
     gate.fallbackCallback({ name: 'o', model: 'claude-opus-4-8' }).handleLLMEnd();
 
     expect(getModelFallbackMeta(agent)).toEqual({ from: 's', to: ['o'] });
+  });
+  it('never retries a model that has fallbacks, and leaves the others alone', async () => {
+    const withFallbacks: Record<string, unknown> = { maxRetries: 6 };
+    await applyModelFallbacks({
+      llmConfig: withFallbacks,
+      primary: { endpoint: 'anthropic', model: 'claude-sonnet-5', spec: 's' },
+      appConfig: { config: { modelFallback: config }, modelSpecs: { list: specs } },
+      buildEntry,
+    });
+    expect(withFallbacks.maxRetries).toBe(0);
+
+    const withoutFallbacks: Record<string, unknown> = { maxRetries: 6 };
+    await applyModelFallbacks({
+      llmConfig: withoutFallbacks,
+      primary: { endpoint: 'openAI', model: 'gpt-4o' },
+      appConfig: { config: { modelFallback: config }, modelSpecs: { list: specs } },
+      buildEntry,
+    });
+    expect(withoutFallbacks.maxRetries).toBe(6);
+  });
+});
+
+describe('isUnbilledFallbackAbort', () => {
+  it('is true only while the failed call left the user with nothing', () => {
+    const agent = { model: 'fake-429' };
+    expect(isUnbilledFallbackAbort(agent)).toBe(false);
+
+    const gate = createModelFallbackGate();
+    attachModelFallbackGate(agent, gate);
+    gate.primaryCallback.handleChatModelStart(undefined, undefined, 'primary', 'node');
+    gate.primaryCallback.handleLLMError({ status: 429 }, 'primary', 'node');
+    expect(isUnbilledFallbackAbort(agent)).toBe(true);
+
+    gate
+      .fallbackCallback({ name: 'auto-haiku', model: 'claude-haiku-5-5' })
+      .handleLLMNewToken('Ciao', undefined, 'haiku', 'node');
+    expect(isUnbilledFallbackAbort(agent)).toBe(false);
   });
 });
 

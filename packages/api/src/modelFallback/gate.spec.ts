@@ -1,7 +1,7 @@
 import { logger } from '@librechat/data-schemas';
 import { FakeListChatModel } from '@langchain/core/utils/testing';
 import type { ModelFallbackGate } from './gate';
-import { createModelFallbackGate, isFallbackEligibleError } from './gate';
+import { createModelFallbackGate, describeError, isFallbackEligibleError } from './gate';
 
 class FailingAfterTokenModel extends FakeListChatModel {
   constructor(private readonly failure: object) {
@@ -201,5 +201,57 @@ describe('createModelFallbackGate', () => {
       '[modelFallback] "luna" failed (429 rate limit), trying "claude-sonnet-5"',
     );
     info.mockRestore();
+  });
+
+  it('names the fallback that failed last and its own error when trying the next', () => {
+    const info = jest.spyOn(logger, 'info').mockImplementation(() => logger);
+    const gate = createModelFallbackGate({ from: 'test-429' });
+    gate.primaryCallback.handleChatModelStart(undefined, undefined, 'primary', 'node');
+    gate.primaryCallback.handleLLMError(
+      { status: 429, message: '429 Rate limit' },
+      'primary',
+      'node',
+    );
+    const haiku = gate.fallbackCallback({ name: 'auto-haiku', model: 'claude-haiku-5-5' });
+    const luna = gate.fallbackCallback({ name: 'auto-luna', model: 'gpt-6-luna' });
+
+    haiku.handleChatModelStart(undefined, undefined, 'haiku', 'node');
+    haiku.handleLLMError(new Error('Unsupported content part'), 'haiku', 'node');
+    luna.handleChatModelStart(undefined, undefined, 'luna', 'node');
+
+    expect(info.mock.calls.map(([message]) => message)).toEqual([
+      '[modelFallback] "test-429" failed (429 Rate limit), trying "auto-haiku"',
+      '[modelFallback] "auto-haiku" failed (Unsupported content part), trying "auto-luna"',
+    ]);
+    info.mockRestore();
+  });
+
+  it('knows when a failed call reached the user with nothing', () => {
+    const gate = createModelFallbackGate();
+    expect(gate.failedWithoutOutput()).toBe(false);
+
+    gate.primaryCallback.handleChatModelStart(undefined, undefined, 'primary', 'node');
+    gate.primaryCallback.handleLLMError({ status: 429 }, 'primary', 'node');
+    expect(gate.failedWithoutOutput()).toBe(true);
+
+    gate
+      .fallbackCallback({ name: 'auto-haiku', model: 'claude-haiku-5-5' })
+      .handleLLMNewToken('Ciao', undefined, 'haiku', 'node');
+    expect(gate.failedWithoutOutput()).toBe(false);
+  });
+});
+
+describe('describeError', () => {
+  it('keeps one line and never repeats the status', () => {
+    const langChainError = Object.assign(
+      new Error(
+        '429 Rate limit reached (test SimpleAI)\n\nTroubleshooting URL: https://docs.langchain.com/x\n',
+      ),
+      { status: 429 },
+    );
+    expect(describeError(langChainError)).toBe('429 Rate limit reached (test SimpleAI)');
+    expect(describeError({ status: 529, message: 'Overloaded' })).toBe('529 Overloaded');
+    expect(describeError(new Error('Unsupported content part'))).toBe('Unsupported content part');
+    expect(describeError({ status: 503 })).toBe('503');
   });
 });

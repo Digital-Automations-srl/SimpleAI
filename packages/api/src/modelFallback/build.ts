@@ -102,7 +102,15 @@ export async function buildModelFallbacks({
       logger.warn(`[modelFallback] Skipping fallback spec "${spec.name}"`, error);
     }
   }
-  return fallbacks;
+  /** Each fallback but the last hands over at once; the last keeps its client's own retries. */
+  return fallbacks.map((fallback, index) =>
+    index === fallbacks.length - 1
+      ? fallback
+      : ({
+          ...fallback,
+          clientOptions: { ...fallback.clientOptions, maxRetries: 0 },
+        } as FallbackConfig),
+  );
 }
 
 /** Non-enumerable, so the gate never travels with a serialized agent. */

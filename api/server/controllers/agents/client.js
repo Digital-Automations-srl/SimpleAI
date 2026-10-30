@@ -186,6 +186,7 @@ const {
   resolvePersistableCodeEnvironmentDecision,
   getModelFallbackMeta,
   resolveFallbackTokenConfig,
+  isUnbilledFallbackAbort,
 } = require('@librechat/api');
 const {
   Run,
@@ -6218,13 +6219,17 @@ class AgentClient extends BaseClient {
     completionTokens,
     context,
   }) {
+    const aborted = this.abortController?.signal?.aborted === true;
+    if (aborted && isUnbilledFallbackAbort(this.options.agent)) {
+      return;
+    }
     await recordFallbackTokenUsage(
       { spendTokens: db.spendTokens },
       {
         usage,
         context,
         collectedUsage: this.collectedUsage,
-        aborted: this.abortController?.signal?.aborted === true,
+        aborted,
         promptTokens,
         completionTokens,
         txMetadata: {

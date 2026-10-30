@@ -60,6 +60,15 @@ async function postFake(server: FakeServer, path: string, body?: Record<string, 
   }
 }
 
+/** What a fake server recorded; the label server keeps each chat request's messages. */
+export async function fakeRequests<T>(server: FakeServer): Promise<T[]> {
+  const response = await fetch(`http://127.0.0.1:${FAKE_PORTS[server]}/__e2e/requests`);
+  if (!response.ok) {
+    throw new Error(`fake ${server} /__e2e/requests -> ${response.status}`);
+  }
+  return ((await response.json()) as { requests: T[] }).requests;
+}
+
 export async function setFakeBehavior(server: FakeServer, behavior: Record<string, unknown>) {
   await postFake(server, '/__e2e/behavior', behavior);
 }

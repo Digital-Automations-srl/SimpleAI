@@ -45,6 +45,28 @@ describe('buildModelFallbacks', () => {
   });
 });
 
+describe('buildModelFallbacks retries', () => {
+  it('lets every fallback but the last hand over at once', async () => {
+    const buildEntry: BuildFallbackEntry = async (_endpoint, modelParameters) => ({
+      provider: 'openAI',
+      llmConfig: { model: modelParameters.model, maxRetries: 6 },
+    });
+    const fallbacks = await buildModelFallbacks({
+      chain: [
+        { name: 'a', preset: { endpoint: 'openAI', model: 'a' } },
+        { name: 'b', preset: { endpoint: 'openAI', model: 'b' } },
+        { name: 'c', preset: { endpoint: 'openAI', model: 'c' } },
+      ],
+      gate: createModelFallbackGate(),
+      buildEntry,
+    });
+
+    expect(
+      fallbacks.map((fallback) => (fallback.clientOptions as { maxRetries?: number }).maxRetries),
+    ).toEqual([0, 0, 6]);
+  });
+});
+
 describe('buildModelFallbacks spec settings', () => {
   const buildEntry: BuildFallbackEntry = async (_endpoint, modelParameters) => ({
     provider: 'openAI',

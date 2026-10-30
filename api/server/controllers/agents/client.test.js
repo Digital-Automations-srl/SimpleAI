@@ -10508,4 +10508,30 @@ describe('AgentClient.buildResponseMetadata model fallback (SimpleAI)', () => {
 
     expect(client.buildResponseMetadata()?.modelFallback).toBeUndefined();
   });
+
+  it('charges nothing when the user stops a turn whose model failed with nothing shown', async () => {
+    const { spendTokens } = require('~/models');
+    spendTokens.mockClear();
+    const agent = { model: 'fake-429' };
+    const gate = createModelFallbackGate();
+    attachModelFallbackGate(agent, gate);
+    const client = Object.create(AgentClient.prototype);
+    client.options = { agent, req: { user: { id: 'user-123' } } };
+    client.abortController = { signal: { aborted: true } };
+    const estimate = { promptTokens: 1500, completionTokens: 4, model: 'fake-429' };
+
+    gate.primaryCallback.handleChatModelStart(undefined, undefined, 'primary', 'node');
+    gate.primaryCallback.handleLLMError({ status: 429 }, 'primary', 'node');
+    await client.recordTokenUsage(estimate);
+    expect(spendTokens).not.toHaveBeenCalled();
+
+    gate
+      .fallbackCallback({ name: 'auto-haiku', model: 'claude-haiku-5-5' })
+      .handleLLMNewToken('Ciao', undefined, 'haiku', 'node');
+    await client.recordTokenUsage(estimate);
+    expect(spendTokens).toHaveBeenCalledWith(
+      expect.objectContaining({ context: 'abort' }),
+      expect.objectContaining({ promptTokens: 1500 }),
+    );
+  });
 });

@@ -1,0 +1,219 @@
+diff --git a/node_modules/@librechat/agents/dist/cjs/graphs/Graph.cjs b/node_modules/@librechat/agents/dist/cjs/graphs/Graph.cjs
+index 27f1361..4cf9898 100644
+--- a/node_modules/@librechat/agents/dist/cjs/graphs/Graph.cjs
++++ b/node_modules/@librechat/agents/dist/cjs/graphs/Graph.cjs
+@@ -1892,6 +1892,23 @@ var StandardGraph = class StandardGraph extends Graph {
+ 						fallbacks,
+ 						tools: agentContext.tools,
+ 						messages: fallbackBaseMessages,
++						/** SimpleAI patch: a fallback answers with the primary's instructions and tools, shaped for its own provider. */
++						prepareFallbackModel: ({ provider: fallbackProvider, clientOptions: fallbackClientOptions }) => {
++							const fallbackChatModel = require_init.initializeModel({
++								tools: this.getPreparedToolsForBinding(agentContext, fallbackProvider, fallbackClientOptions),
++								provider: fallbackProvider,
++								clientOptions: fallbackClientOptions
++							});
++							const providerView = Object.create(agentContext, {
++								provider: { value: fallbackProvider },
++								clientOptions: { value: fallbackClientOptions }
++							});
++							const fallbackSystemRunnable = providerView.buildSystemRunnable({
++								stableInstructions: agentContext.buildStableInstructionsString(),
++								dynamicInstructions: agentContext.buildDynamicInstructionsString()
++							});
++							return fallbackSystemRunnable ? fallbackSystemRunnable.pipe(fallbackChatModel).withConfig({ runName: require_constants.AGENT_MODEL_CALL_RUN_NAME }) : fallbackChatModel;
++						},
+ 						config: invokeConfig,
+ 						primaryError,
+ 						context: this,
+diff --git a/node_modules/@librechat/agents/dist/cjs/llm/invoke.cjs b/node_modules/@librechat/agents/dist/cjs/llm/invoke.cjs
+index befc001..66cbc70 100644
+--- a/node_modules/@librechat/agents/dist/cjs/llm/invoke.cjs
++++ b/node_modules/@librechat/agents/dist/cjs/llm/invoke.cjs
+@@ -509,17 +509,42 @@ function getFallbackOverflowCandidates(error) {
+ 	if (typeof error !== "object" || error === null) return [];
+ 	return [...fallbackOverflowCandidates.get(error) ?? []];
+ }
+-async function tryFallbackProviders({ fallbacks, tools, messages, config, primaryError, context, onChunk, streamLimitState, preemptAgentId, overflowContext, prepareProviderRequest: prepareFallbackRequest, prepareProviderMessages }) {
++/** SimpleAI patch: documents leave in the primary's format; a fallback of another provider gets LangChain's standard blocks. */
++const DATA_URL_PATTERN = /^data:([^;,]+)?;base64,(.*)$/s;
++function toStandardFileBlock(part) {
++	if (part == null || typeof part !== "object" || part.source_type != null) return part;
++	const fromDataUrl = (dataUrl, filename) => {
++		const match = typeof dataUrl === "string" ? DATA_URL_PATTERN.exec(dataUrl) : null;
++		if (match == null) return part;
++		return { type: "file", source_type: "base64", mime_type: match[1] ?? "application/octet-stream", data: match[2], metadata: { filename: filename ?? "document" } };
++	};
++	if (part.type === "file" && part.file != null) return fromDataUrl(part.file.file_data, part.file.filename);
++	if (part.type === "input_file") return fromDataUrl(part.file_data, part.filename);
++	if (part.type === "media" && typeof part.data === "string") return { type: "file", source_type: "base64", mime_type: part.mimeType, data: part.data, metadata: { filename: "document" } };
++	if (part.type === "document" && part.source?.type === "base64") return { type: "file", source_type: "base64", mime_type: part.source.media_type, data: part.source.data, metadata: { filename: (/File: "(.*)"/.exec(part.context ?? "") ?? [])[1] ?? "document" } };
++	if (part.type === "document" && part.source?.type === "text") return { type: "text", text: `${part.context ?? ""}\n\n${part.source.data}`.trim() };
++	return part;
++}
++function normalizeFallbackDocuments(messages) {
++	return messages.map((message) => {
++		if (!Array.isArray(message?.content) || message.getType?.() !== "human") return message;
++		const content = message.content.map(toStandardFileBlock);
++		if (content.every((part, index) => part === message.content[index])) return message;
++		return new _langchain_core_messages.HumanMessage({ content, additional_kwargs: message.additional_kwargs, response_metadata: message.response_metadata, id: message.id, name: message.name });
++	});
++}
++async function tryFallbackProviders({ fallbacks, tools, messages, config, primaryError, context, onChunk, streamLimitState, preemptAgentId, overflowContext, prepareProviderRequest: prepareFallbackRequest, prepareProviderMessages, prepareFallbackModel }) {
+ 	const isOverflow = (error, contextOverride = overflowContext) => require_errors.getContextOverflowInfo(error, contextOverride) != null;
+ 	let lastError = primaryError;
+ 	const overflowCandidates = [];
+ 	const primaryOverflowError = isOverflow(primaryError) ? primaryError : void 0;
+ 	for (const fb of fallbacks) try {
+-		const fbModel = require_init.initializeModel({
++		const fbModel = prepareFallbackModel?.(fb) ?? require_init.initializeModel({
+ 			provider: fb.provider,
+ 			clientOptions: fb.clientOptions,
+ 			tools
+ 		});
++		const fbMessages = overflowContext?.provider != null && overflowContext.provider !== fb.provider ? normalizeFallbackDocuments(messages) : messages;
+ 		const fbModelName = require_request.resolveClientOptionsModel(fb.clientOptions);
+ 		const fbConfig = fbModelName == null ? config : {
+ 			...config,
+@@ -530,7 +555,7 @@ async function tryFallbackProviders({ fallbacks, tools, messages, config, primar
+ 		};
+ 		const preparationInput = {
+ 			model: fbModel,
+-			messages,
++			messages: fbMessages,
+ 			provider: fb.provider,
+ 			clientOptions: fb.clientOptions,
+ 			maxContextTokens: fb.maxContextTokens,
+@@ -538,15 +563,15 @@ async function tryFallbackProviders({ fallbacks, tools, messages, config, primar
+ 		};
+ 		const preparedRequest = await prepareFallbackRequest?.(preparationInput);
+ 		if (preparedRequest != null) require_prepareProviderRequest.assertPreparedProviderRequestFor(preparedRequest, fbModel, fb.provider, fbConfig);
+-		let fallbackMessages = messages;
++		let fallbackMessages = fbMessages;
+ 		if (preparedRequest == null) fallbackMessages = await prepareProviderMessages?.({
+ 			model: fbModel,
+-			messages,
++			messages: fbMessages,
+ 			provider: fb.provider,
+ 			clientOptions: fb.clientOptions,
+ 			maxContextTokens: fb.maxContextTokens,
+ 			config: fbConfig
+-		}) ?? messages;
++		}) ?? fbMessages;
+ 		if (config?.signal?.aborted === true && (config.signal.reason instanceof require_streamLimits.StreamLimitExceededError || config.signal.reason instanceof require_preparedSubagents.PreparedSubagentError)) throw config.signal.reason;
+ 		if (preparedRequest != null) return await attemptInvoke({
+ 			request: preparedRequest,
+diff --git a/node_modules/@librechat/agents/dist/esm/graphs/Graph.mjs b/node_modules/@librechat/agents/dist/esm/graphs/Graph.mjs
+index 6f7f188..82d54d8 100644
+--- a/node_modules/@librechat/agents/dist/esm/graphs/Graph.mjs
++++ b/node_modules/@librechat/agents/dist/esm/graphs/Graph.mjs
+@@ -1892,6 +1892,23 @@ var StandardGraph = class StandardGraph extends Graph {
+ 						fallbacks,
+ 						tools: agentContext.tools,
+ 						messages: fallbackBaseMessages,
++						/** SimpleAI patch: a fallback answers with the primary's instructions and tools, shaped for its own provider. */
++						prepareFallbackModel: ({ provider: fallbackProvider, clientOptions: fallbackClientOptions }) => {
++							const fallbackChatModel = initializeModel({
++								tools: this.getPreparedToolsForBinding(agentContext, fallbackProvider, fallbackClientOptions),
++								provider: fallbackProvider,
++								clientOptions: fallbackClientOptions
++							});
++							const providerView = Object.create(agentContext, {
++								provider: { value: fallbackProvider },
++								clientOptions: { value: fallbackClientOptions }
++							});
++							const fallbackSystemRunnable = providerView.buildSystemRunnable({
++								stableInstructions: agentContext.buildStableInstructionsString(),
++								dynamicInstructions: agentContext.buildDynamicInstructionsString()
++							});
++							return fallbackSystemRunnable ? fallbackSystemRunnable.pipe(fallbackChatModel).withConfig({ runName: AGENT_MODEL_CALL_RUN_NAME }) : fallbackChatModel;
++						},
+ 						config: invokeConfig,
+ 						primaryError,
+ 						context: this,
+diff --git a/node_modules/@librechat/agents/dist/esm/llm/invoke.mjs b/node_modules/@librechat/agents/dist/esm/llm/invoke.mjs
+index 1a70183..c99bc43 100644
+--- a/node_modules/@librechat/agents/dist/esm/llm/invoke.mjs
++++ b/node_modules/@librechat/agents/dist/esm/llm/invoke.mjs
+@@ -20,7 +20,7 @@ import { assertNotTruncatedToolCall } from "./truncation.mjs";
+ import { initializeModel } from "./init.mjs";
+ import { getCallbackManagerForConfig } from "@langchain/core/runnables";
+ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+-import { AIMessageChunk } from "@langchain/core/messages";
++import { AIMessageChunk, HumanMessage } from "@langchain/core/messages";
+ import { CallbackManager, CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
+ import { concat } from "@langchain/core/utils/stream";
+ //#region src/llm/invoke.ts
+@@ -509,17 +509,42 @@ function getFallbackOverflowCandidates(error) {
+ 	if (typeof error !== "object" || error === null) return [];
+ 	return [...fallbackOverflowCandidates.get(error) ?? []];
+ }
+-async function tryFallbackProviders({ fallbacks, tools, messages, config, primaryError, context, onChunk, streamLimitState, preemptAgentId, overflowContext, prepareProviderRequest: prepareFallbackRequest, prepareProviderMessages }) {
++/** SimpleAI patch: documents leave in the primary's format; a fallback of another provider gets LangChain's standard blocks. */
++const DATA_URL_PATTERN = /^data:([^;,]+)?;base64,(.*)$/s;
++function toStandardFileBlock(part) {
++	if (part == null || typeof part !== "object" || part.source_type != null) return part;
++	const fromDataUrl = (dataUrl, filename) => {
++		const match = typeof dataUrl === "string" ? DATA_URL_PATTERN.exec(dataUrl) : null;
++		if (match == null) return part;
++		return { type: "file", source_type: "base64", mime_type: match[1] ?? "application/octet-stream", data: match[2], metadata: { filename: filename ?? "document" } };
++	};
++	if (part.type === "file" && part.file != null) return fromDataUrl(part.file.file_data, part.file.filename);
++	if (part.type === "input_file") return fromDataUrl(part.file_data, part.filename);
++	if (part.type === "media" && typeof part.data === "string") return { type: "file", source_type: "base64", mime_type: part.mimeType, data: part.data, metadata: { filename: "document" } };
++	if (part.type === "document" && part.source?.type === "base64") return { type: "file", source_type: "base64", mime_type: part.source.media_type, data: part.source.data, metadata: { filename: (/File: "(.*)"/.exec(part.context ?? "") ?? [])[1] ?? "document" } };
++	if (part.type === "document" && part.source?.type === "text") return { type: "text", text: `${part.context ?? ""}\n\n${part.source.data}`.trim() };
++	return part;
++}
++function normalizeFallbackDocuments(messages) {
++	return messages.map((message) => {
++		if (!Array.isArray(message?.content) || message.getType?.() !== "human") return message;
++		const content = message.content.map(toStandardFileBlock);
++		if (content.every((part, index) => part === message.content[index])) return message;
++		return new HumanMessage({ content, additional_kwargs: message.additional_kwargs, response_metadata: message.response_metadata, id: message.id, name: message.name });
++	});
++}
++async function tryFallbackProviders({ fallbacks, tools, messages, config, primaryError, context, onChunk, streamLimitState, preemptAgentId, overflowContext, prepareProviderRequest: prepareFallbackRequest, prepareProviderMessages, prepareFallbackModel }) {
+ 	const isOverflow = (error, contextOverride = overflowContext) => getContextOverflowInfo(error, contextOverride) != null;
+ 	let lastError = primaryError;
+ 	const overflowCandidates = [];
+ 	const primaryOverflowError = isOverflow(primaryError) ? primaryError : void 0;
+ 	for (const fb of fallbacks) try {
+-		const fbModel = initializeModel({
++		const fbModel = prepareFallbackModel?.(fb) ?? initializeModel({
+ 			provider: fb.provider,
+ 			clientOptions: fb.clientOptions,
+ 			tools
+ 		});
++		const fbMessages = overflowContext?.provider != null && overflowContext.provider !== fb.provider ? normalizeFallbackDocuments(messages) : messages;
+ 		const fbModelName = resolveClientOptionsModel(fb.clientOptions);
+ 		const fbConfig = fbModelName == null ? config : {
+ 			...config,
+@@ -530,7 +555,7 @@ async function tryFallbackProviders({ fallbacks, tools, messages, config, primar
+ 		};
+ 		const preparationInput = {
+ 			model: fbModel,
+-			messages,
++			messages: fbMessages,
+ 			provider: fb.provider,
+ 			clientOptions: fb.clientOptions,
+ 			maxContextTokens: fb.maxContextTokens,
+@@ -538,15 +563,15 @@ async function tryFallbackProviders({ fallbacks, tools, messages, config, primar
+ 		};
+ 		const preparedRequest = await prepareFallbackRequest?.(preparationInput);
+ 		if (preparedRequest != null) assertPreparedProviderRequestFor(preparedRequest, fbModel, fb.provider, fbConfig);
+-		let fallbackMessages = messages;
++		let fallbackMessages = fbMessages;
+ 		if (preparedRequest == null) fallbackMessages = await prepareProviderMessages?.({
+ 			model: fbModel,
+-			messages,
++			messages: fbMessages,
+ 			provider: fb.provider,
+ 			clientOptions: fb.clientOptions,
+ 			maxContextTokens: fb.maxContextTokens,
+ 			config: fbConfig
+-		}) ?? messages;
++		}) ?? fbMessages;
+ 		if (config?.signal?.aborted === true && (config.signal.reason instanceof StreamLimitExceededError || config.signal.reason instanceof PreparedSubagentError)) throw config.signal.reason;
+ 		if (preparedRequest != null) return await attemptInvoke({
+ 			request: preparedRequest,

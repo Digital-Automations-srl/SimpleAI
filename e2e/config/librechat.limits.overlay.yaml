@@ -7,9 +7,11 @@ modelFallback:
 
 modelSpecs:
   list:
+    # D3: the instructions the fallback must answer with (the fake label server records them).
     - name: 'e2e-mock-provider-a'
       preset:
         endpointType: 'custom'
+        promptPrefix: 'E2E_LIMITS_INSTRUCTIONS: rispondi come revisore di Meccanica Rossi.'
     - name: 'e2e-mock-provider-b'
       preset:
         endpointType: 'custom'

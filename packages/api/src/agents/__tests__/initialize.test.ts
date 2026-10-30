@@ -5129,7 +5129,11 @@ describe('initializeAgent — model fallback (SimpleAI)', () => {
     jest.clearAllMocks();
   });
 
-  async function initialize(config: object, maxTokens?: (model: string) => number) {
+  async function initialize(
+    config: object,
+    maxTokens?: (model: string) => number,
+    endpointOption: object = { endpoint: EModelEndpoint.agents },
+  ) {
     const { agent, req, res, loadTools, db } = createMocks();
     (req as unknown as { config: object }).config = config;
     if (maxTokens) {
@@ -5150,7 +5154,7 @@ describe('initializeAgent — model fallback (SimpleAI)', () => {
         res,
         agent,
         loadTools,
-        endpointOption: { endpoint: EModelEndpoint.agents },
+        endpointOption,
         allowedProviders: new Set([Providers.OPENAI]),
         isInitialAgent: true,
       },
@@ -5222,6 +5226,17 @@ describe('initializeAgent — model fallback (SimpleAI)', () => {
       fallbacks?: Array<{ clientOptions: { model?: string } }>;
     };
     expect(fallbacks?.map((fallback) => fallback.clientOptions.model)).toEqual(['claude-sonnet-5']);
+  });
+
+  it('names the primary by the spec the user picked, which only the endpoint option carries', async () => {
+    const { result } = await initialize(
+      { config: { modelFallback: { tiers: [['primary', 'sonnet-5']] } }, modelSpecs },
+      undefined,
+      { endpoint: EModelEndpoint.agents, spec: 'primary' },
+    );
+
+    expect(getModelFallbackGate(result)?.from).toBe('primary');
+    expect((result.model_parameters as { maxRetries?: number }).maxRetries).toBe(0);
   });
 
   it('leaves the model untouched without the configuration', async () => {

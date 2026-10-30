@@ -121,6 +121,19 @@ falliscono, quelli spariti vengono segnalati (toglili dal file).
 
 Procedura estesa: `docs/deployment-pipeline.md`, sezione 6.
 
+### Patch su `node_modules`
+
+`patches/` contiene le patch di `patch-package`, applicate dal `postinstall` della root a ogni
+`npm install`/`npm ci` (il `Dockerfile` copia `patches/` prima di `npm ci`). Oggi c'è una sola
+patch, `@librechat+agents+4.0.1.patch` (T193): il modello di riserva riceve le istruzioni, gli
+strumenti e gli allegati del primario. Si cerca con `SimpleAI patch` nei file `dist` patchati.
+
+- Quando si aggiorna `@librechat/agents`, `patch-package` fallisce se la patch non si applica più:
+  controlla se upstream ha risolto (allora togli la patch), altrimenti rifalla sulla nuova versione
+  (modifica i file in `node_modules`, poi `npx patch-package @librechat/agents`).
+- Che la patch serva lo provano `packages/api/src/modelFallback/fallback.run.integration.spec.ts`
+  e il caso D3 di `e2e/specs/limits/d-models.spec.ts`: entrambi falliscono senza la patch.
+
 ## Deploy
 
 Da v0.8.7 si distribuisce l'immagine `ghcr.io/digital-automations-srl/simpleai:<versione>`; il
