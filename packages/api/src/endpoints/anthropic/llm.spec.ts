@@ -1852,19 +1852,25 @@ describe('getLLMConfig', () => {
         });
       });
 
-      it('should future-proof Claude 5.x Haiku models with 64K default', () => {
-        const testCases = [
-          'claude-haiku-5',
-          'claude-haiku-5-0',
-          'claude-haiku-5-2-20260101',
-          'claude-haiku-5.5',
-        ];
+      it('should keep Claude Haiku 5.0-5.4 at the 64K default', () => {
+        const testCases = ['claude-haiku-5', 'claude-haiku-5-0', 'claude-haiku-5-2-20260101'];
 
         testCases.forEach((model) => {
           const result = getLLMConfig('test-key', {
             modelOptions: { model },
           });
           expect(result.llmConfig.maxTokens).toBe(64000);
+        });
+      });
+
+      it('should give Claude Haiku 5.5+ the 128K default', () => {
+        const testCases = ['claude-haiku-5-5', 'claude-haiku-5.5', 'claude-haiku-5-5-20261001'];
+
+        testCases.forEach((model) => {
+          const result = getLLMConfig('test-key', {
+            modelOptions: { model },
+          });
+          expect(result.llmConfig.maxTokens).toBe(128000);
         });
       });
 
@@ -1886,21 +1892,21 @@ describe('getLLMConfig', () => {
 
       it('should future-proof Claude 6-9.x models with correct defaults', () => {
         const testCases = [
-          // Claude 6.x - Sonnet/Opus get 128K, Haiku gets 64K
+          // Claude 6.x - Sonnet/Opus/Haiku all get 128K (Haiku since 5.5)
           { model: 'claude-sonnet-6', expected: 128000 },
-          { model: 'claude-haiku-6-0', expected: 64000 },
+          { model: 'claude-haiku-6-0', expected: 128000 },
           { model: 'claude-opus-6-1', expected: 128000 },
           // Claude 7.x
           { model: 'claude-sonnet-7-20270101', expected: 128000 },
-          { model: 'claude-haiku-7.5', expected: 64000 },
+          { model: 'claude-haiku-7.5', expected: 128000 },
           { model: 'claude-opus-7', expected: 128000 },
           // Claude 8.x
           { model: 'claude-sonnet-8', expected: 128000 },
-          { model: 'claude-haiku-8-2', expected: 64000 },
+          { model: 'claude-haiku-8-2', expected: 128000 },
           { model: 'claude-opus-8-latest', expected: 128000 },
           // Claude 9.x
           { model: 'claude-sonnet-9', expected: 128000 },
-          { model: 'claude-haiku-9', expected: 64000 },
+          { model: 'claude-haiku-9', expected: 128000 },
           { model: 'claude-opus-9', expected: 128000 },
         ];
 

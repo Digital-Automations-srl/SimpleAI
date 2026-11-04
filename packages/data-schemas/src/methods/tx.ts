@@ -16,6 +16,11 @@
  *    the last-defined key wins.
  */
 
+import logger from '~/config/winston';
+
+/** Catch-all key: a Claude model priced on it is missing from the table. */
+const GENERIC_CLAUDE_KEY = 'claude-';
+
 export interface TxDeps {
   /** From @librechat/api — matches a model name to a canonical key. */
   matchModelName: (model: string, endpoint?: string) => string | undefined;
@@ -181,6 +186,9 @@ export const tokenValues: Record<string, { prompt: number; completion: number }>
     'claude-3-7-sonnet': { prompt: 3, completion: 15 },
     'claude-3.7-sonnet': { prompt: 3, completion: 15 },
     'claude-haiku-4-5': { prompt: 1, completion: 5 },
+    // Up to a 100K-token prompt; the longer rate card lives in `premiumTokenValues`.
+    'claude-haiku-5-5': { prompt: 0.1, completion: 0.5 },
+    'claude-haiku-5.5': { prompt: 0.1, completion: 0.5 },
     'claude-opus-4': { prompt: 15, completion: 75 },
     'claude-opus-4-5': { prompt: 5, completion: 25 },
     'claude-opus-4-6': { prompt: 5, completion: 25 },
@@ -196,7 +204,6 @@ export const tokenValues: Record<string, { prompt: number; completion: number }>
     'claude-sonnet-4': { prompt: 3, completion: 15 },
     'claude-sonnet-4-5': { prompt: 3, completion: 15 },
     'claude-sonnet-4-6': { prompt: 3, completion: 15 },
-    // Sonnet 5 introductory pricing through 2026-08-31; revert to { prompt: 3, completion: 15 } after.
     'claude-sonnet-5': { prompt: 2, completion: 10 },
     'claude-sonnet-5-5': { prompt: 2, completion: 10 },
     'claude-sonnet-5.5': { prompt: 2, completion: 10 },
@@ -225,6 +232,7 @@ export const tokenValues: Record<string, { prompt: number; completion: number }>
     'gemini-2.5-pro': { prompt: 1.25, completion: 10 },
     'gemini-2.5-flash-image': { prompt: 0.15, completion: 30 },
     'gemini-3': { prompt: 2, completion: 12 },
+    'gemini-3-flash': { prompt: 0.5, completion: 3 },
     'gemini-3-pro-image': { prompt: 2, completion: 120 },
     'gemini-3.1': { prompt: 2, completion: 12 },
     'gemini-3.1-flash-lite': { prompt: 0.25, completion: 1.5 },
@@ -366,10 +374,11 @@ export const cacheTokenValues: Record<string, { write: number; read: number }> =
   'claude-3-5-haiku': { write: 1, read: 0.08 },
   'claude-3-haiku': { write: 0.3, read: 0.03 },
   'claude-haiku-4-5': { write: 1.25, read: 0.1 },
+  'claude-haiku-5-5': { write: 0.125, read: 0.01 },
+  'claude-haiku-5.5': { write: 0.125, read: 0.01 },
   'claude-sonnet-4': { write: 3.75, read: 0.3 },
   'claude-sonnet-4-5': { write: 3.75, read: 0.3 },
   'claude-sonnet-4-6': { write: 3.75, read: 0.3 },
-  // Sonnet 5 introductory pricing through 2026-08-31; revert to { write: 3.75, read: 0.3 } after.
   'claude-sonnet-5': { write: 2.5, read: 0.2 },
   'claude-sonnet-5-5': { write: 2.5, read: 0.2 },
   'claude-sonnet-5.5': { write: 2.5, read: 0.2 },
@@ -456,6 +465,8 @@ export const premiumTokenValues: Record<
   { threshold: number; prompt: number; completion: number }
 > = {
   'gemini-3.1': { threshold: 200000, prompt: 4, completion: 18 },
+  'claude-haiku-5-5': { threshold: 100000, prompt: 0.5, completion: 2.5 },
+  'claude-haiku-5.5': { threshold: 100000, prompt: 0.5, completion: 2.5 },
   'gpt-5.4': { threshold: 272000, prompt: 5, completion: 22.5 },
   'gpt-5.4-pro': { threshold: 272000, prompt: 60, completion: 270 },
   'gpt-5.5': { threshold: 272000, prompt: 10, completion: 45 },
@@ -485,6 +496,8 @@ export const premiumCacheTokenValues: Record<
   string,
   { threshold: number; write: number; read: number }
 > = {
+  'claude-haiku-5-5': { threshold: 100000, write: 0.625, read: 0.05 },
+  'claude-haiku-5.5': { threshold: 100000, write: 0.625, read: 0.05 },
   'gpt-5.4': { threshold: 272000, write: 5, read: 0.5 },
   'gpt-5.5': { threshold: 272000, write: 10, read: 1 },
   'gpt-5.6': { threshold: 272000, write: 10, read: 0.8 },
@@ -562,6 +575,23 @@ export function createTxMethods(
   >;
 } {
   const { matchModelName, findMatchingPattern } = txDeps;
+  const warnedModels = new Set<string>();
+
+  /** Logs once per model when pricing degrades to a generic key or to `defaultRate`. */
+  function warnGenericPricing(model: string, valueKey: string | undefined): void {
+    if (valueKey !== undefined && valueKey !== GENERIC_CLAUDE_KEY) {
+      return;
+    }
+    if (warnedModels.has(model)) {
+      return;
+    }
+    warnedModels.add(model);
+    const fallback =
+      valueKey === undefined ? `defaultRate ${defaultRate}` : `the generic "${valueKey}" rate`;
+    logger.warn(
+      `[tx] No pricing entry for model "${model}": billing falls back to ${fallback}. Add it to tokenValues/cacheTokenValues.`,
+    );
+  }
 
   /**
    * Retrieves the key associated with a given model name.
@@ -570,7 +600,12 @@ export function createTxMethods(
     if (!model || typeof model !== 'string') {
       return undefined;
     }
+    const valueKey = resolveValueKey(model, endpoint);
+    warnGenericPricing(model, valueKey);
+    return valueKey;
+  }
 
+  function resolveValueKey(model: string, endpoint?: string): string | undefined {
     if (!endpoint || (typeof endpoint === 'string' && !tokenValues[endpoint])) {
       const matchedKey = findMatchingPattern(model, tokenValues);
       if (matchedKey) {

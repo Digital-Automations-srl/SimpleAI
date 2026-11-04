@@ -368,20 +368,22 @@ export function isThinkingOffConfig(thinking: unknown): boolean {
   return thinking.type === 'disabled' || thinking.type === 'between_tools';
 }
 
-/** Checks if a model has a 1M context window (Sonnet 4.6+, Opus 4.6+, Opus 5+, Fable/Mythos) */
+/** Checks if a model has a 1M context window (Sonnet 4.6+, Opus 4.6+, Haiku 5.5+, Fable/Mythos) */
 export function supportsContext1m(model: string): boolean {
   return (
     isAtLeast(parseSonnetVersion(model), 4, 6) ||
     isAtLeast(parseOpusVersion(model), 4, 6) ||
+    isAdaptiveHaiku(model) ||
     s.isMythosClassModel(model)
   );
 }
 
-/** Opus 5.5+, Sonnet 5.5+ and Fable/Mythos emit up to 128k output tokens. */
+/** Opus 5.5+, Sonnet 5.5+, Haiku 5.5+ and Fable/Mythos emit up to 128k output tokens. */
 export function supportsOutput128k(model: string): boolean {
   return (
     isAtLeast(parseOpusVersion(model), 5, 5) ||
     isAtLeast(parseSonnetVersion(model), 5, 5) ||
+    isAdaptiveHaiku(model) ||
     s.isMythosClassModel(model)
   );
 }

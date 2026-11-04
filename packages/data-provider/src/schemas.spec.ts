@@ -83,8 +83,18 @@ describe('anthropicSettings', () => {
         expect(reset('claude-haiku-5')).toBe(64000);
       });
 
-      it('should return 64K for future versions like claude-haiku-9', () => {
-        expect(reset('claude-haiku-9')).toBe(64000);
+      it('should return 128K for claude-haiku-5-5 and claude-haiku-5.5', () => {
+        expect(reset('claude-haiku-5-5')).toBe(128000);
+        expect(reset('claude-haiku-5.5')).toBe(128000);
+      });
+
+      it('should return 128K for future versions like claude-haiku-9', () => {
+        expect(reset('claude-haiku-9')).toBe(128000);
+      });
+
+      it('should cap claude-haiku-5-5 at 128K, not 64K', () => {
+        expect(anthropicSettings.maxOutputTokens.set(100000, 'claude-haiku-5-5')).toBe(100000);
+        expect(anthropicSettings.maxOutputTokens.set(200000, 'claude-haiku-5-5')).toBe(128000);
       });
     });
 

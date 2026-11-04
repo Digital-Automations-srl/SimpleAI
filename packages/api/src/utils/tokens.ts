@@ -1,4 +1,5 @@
 import z from 'zod';
+import { logger } from '@librechat/data-schemas';
 import {
   EModelEndpoint,
   supportsContext1m,
@@ -173,6 +174,8 @@ const anthropicModels = {
   'claude-3.7-sonnet': 200000,
   'claude-4': 200000,
   'claude-haiku-4-5': 200000,
+  'claude-haiku-5-5': 1000000,
+  'claude-haiku-5.5': 1000000,
   'claude-opus-4': 200000,
   'claude-opus-4-5': 200000,
   'claude-sonnet-4': 200000,
@@ -556,6 +559,8 @@ const anthropicMaxOutputs = {
   'claude-3-sonnet': 4096,
   'claude-3-opus': 4096,
   'claude-haiku-4-5': 64000,
+  'claude-haiku-5-5': 128000,
+  'claude-haiku-5.5': 128000,
   'claude-sonnet-4': 64000,
   'claude-sonnet-4-6': 128000,
   'claude-sonnet-4.6': 128000,
@@ -738,7 +743,27 @@ export function getModelMaxTokens(
   if (context1mValue != null) {
     return context1mValue;
   }
-  return getModelTokenValue(modelName, maxTokensMap[endpoint as keyof typeof maxTokensMap]);
+  const tokensMap = maxTokensMap[endpoint as keyof typeof maxTokensMap];
+  warnGenericContext(modelName, tokensMap);
+  return getModelTokenValue(modelName, tokensMap);
+}
+
+/** Catch-all context key: a Claude model resolved to it is missing from the map. */
+const GENERIC_CLAUDE_CONTEXT_KEY = 'claude-';
+const warnedContextModels = new Set<string>();
+
+/** Logs once per model when its context window degrades to the generic Claude entry. */
+function warnGenericContext(modelName: string, tokensMap?: Record<string, number>): void {
+  if (tokensMap == null || tokensMap[modelName] != null || warnedContextModels.has(modelName)) {
+    return;
+  }
+  if (findMatchingPattern(modelName, tokensMap) !== GENERIC_CLAUDE_CONTEXT_KEY) {
+    return;
+  }
+  warnedContextModels.add(modelName);
+  logger.warn(
+    `[tokens] No context window entry for model "${modelName}": falling back to the generic "${GENERIC_CLAUDE_CONTEXT_KEY}" value (${tokensMap[GENERIC_CLAUDE_CONTEXT_KEY]}). Add it to the token maps.`,
+  );
 }
 
 /**

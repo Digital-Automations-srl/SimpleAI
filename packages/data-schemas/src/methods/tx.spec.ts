@@ -9,6 +9,7 @@ import {
   defaultRate,
 } from './tx';
 import { matchModelName, findMatchingPattern } from './test-helpers';
+import logger from '~/config/winston';
 
 const { getValueKey, getMultiplier, getPremiumRate, getCacheMultiplier } = createTxMethods(
   {} as typeof import('mongoose'),
@@ -3251,6 +3252,72 @@ describe('Sonnet 5.5 pricing', () => {
         cacheTokenValues['claude-sonnet-5'].read,
       );
     }
+  });
+});
+
+describe('Haiku 5.5 pricing', () => {
+  it.each([
+    'claude-haiku-5-5',
+    'claude-haiku-5.5',
+    'anthropic/claude-haiku-5-5',
+    'global.anthropic.claude-haiku-5-5',
+  ])('prices %s on its own key, not on the generic claude- fallback', (model) => {
+    expect(getValueKey(model)).not.toBe('claude-');
+    expect(getMultiplier({ model, tokenType: 'prompt', inputTokenCount: 1000 })).toBe(0.1);
+    expect(getMultiplier({ model, tokenType: 'completion', inputTokenCount: 1000 })).toBe(0.5);
+    expect(getCacheMultiplier({ model, cacheType: 'write', inputTokenCount: 1000 })).toBe(0.125);
+    expect(getCacheMultiplier({ model, cacheType: 'read', inputTokenCount: 1000 })).toBe(0.01);
+  });
+
+  it('switches to the long-context rate card above a 100K-token prompt', () => {
+    const model = 'claude-haiku-5-5';
+    expect(getMultiplier({ model, tokenType: 'prompt', inputTokenCount: 100000 })).toBe(0.1);
+    expect(getMultiplier({ model, tokenType: 'prompt', inputTokenCount: 100001 })).toBe(0.5);
+    expect(getMultiplier({ model, tokenType: 'completion', inputTokenCount: 100001 })).toBe(2.5);
+    expect(getCacheMultiplier({ model, cacheType: 'write', inputTokenCount: 100001 })).toBe(0.625);
+    expect(getCacheMultiplier({ model, cacheType: 'read', inputTokenCount: 100001 })).toBe(0.05);
+  });
+});
+
+describe('generic pricing fallback warning', () => {
+  const freshTx = () =>
+    createTxMethods({} as typeof import('mongoose'), { matchModelName, findMatchingPattern });
+
+  it('warns once per model priced on the generic claude- key', () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    const tx = freshTx();
+    tx.getValueKey('claude-newfamily-1');
+    tx.getValueKey('claude-newfamily-1');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('claude-newfamily-1');
+    warn.mockRestore();
+  });
+
+  it('warns when a model has no pricing entry at all', () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    freshTx().getMultiplier({ model: 'totally-unknown-model', tokenType: 'prompt' });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain(`defaultRate ${defaultRate}`);
+    warn.mockRestore();
+  });
+
+  it('stays silent for models with their own entry', () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    const tx = freshTx();
+    tx.getValueKey('claude-haiku-5-5');
+    tx.getValueKey('gpt-6-sol');
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('Gemini 3 Flash pricing', () => {
+  it('prices gemini-3-flash-preview as Flash, not as Gemini 3 Pro', () => {
+    const model = 'gemini-3-flash-preview';
+    expect(getValueKey(model)).toBe('gemini-3-flash');
+    expect(getMultiplier({ model, tokenType: 'prompt' })).toBe(0.5);
+    expect(getMultiplier({ model, tokenType: 'completion' })).toBe(3);
+    expect(getMultiplier({ model: 'gemini-3-pro-preview', tokenType: 'prompt' })).toBe(2);
   });
 });
 

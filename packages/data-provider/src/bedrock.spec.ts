@@ -5,6 +5,9 @@ describe('Claude capability helpers', () => {
     expect(supportsContext1m('claude-sonnet-6')).toBe(true);
     expect(supportsContext1m('claude-opus-6')).toBe(true);
     expect(supportsContext1m('claude-haiku-4')).toBe(false);
+    expect(supportsContext1m('claude-haiku-4-5')).toBe(false);
+    expect(supportsContext1m('claude-haiku-5-5')).toBe(true);
+    expect(supportsContext1m('anthropic.claude-haiku-5-5')).toBe(true);
   });
 
   it('uses raw model IDs to resolve prompt-cache support', () => {

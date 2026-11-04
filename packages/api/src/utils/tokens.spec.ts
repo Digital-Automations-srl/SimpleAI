@@ -1,3 +1,4 @@
+import { logger } from '@librechat/data-schemas';
 import { EModelEndpoint } from 'librechat-data-provider';
 import type { EndpointTokenConfig } from '~/types';
 import { getModelMaxTokens, getModelMaxOutputTokens, findMatchingPattern } from './tokens';
@@ -334,6 +335,44 @@ describe('Sonnet 5.5 token limits', () => {
     expect(getModelMaxOutputTokens(model)).toBe(128000);
     expect(getModelMaxTokens(model, EModelEndpoint.anthropic)).toBe(1000000);
     expect(getModelMaxOutputTokens(model, EModelEndpoint.anthropic)).toBe(128000);
+  });
+});
+
+describe('Haiku 5.5 token limits', () => {
+  it.each([
+    'claude-haiku-5-5',
+    'claude-haiku-5.5',
+    'anthropic/claude-haiku-5-5',
+    'global.anthropic.claude-haiku-5-5',
+  ])('resolves %s to 1M context and 128K output', (model) => {
+    expect(getModelMaxTokens(model)).toBe(1000000);
+    expect(getModelMaxOutputTokens(model)).toBe(128000);
+    expect(getModelMaxTokens(model, EModelEndpoint.anthropic)).toBe(1000000);
+    expect(getModelMaxOutputTokens(model, EModelEndpoint.anthropic)).toBe(128000);
+  });
+
+  it('keeps Haiku 4.5 at 200K context and 64K output', () => {
+    expect(getModelMaxTokens('claude-haiku-4-5', EModelEndpoint.anthropic)).toBe(200000);
+    expect(getModelMaxOutputTokens('claude-haiku-4-5', EModelEndpoint.anthropic)).toBe(64000);
+  });
+});
+
+describe('generic Claude context fallback warning', () => {
+  it('warns once for a Claude model that only matches the generic entry', () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    getModelMaxTokens('claude-newfamily-1', EModelEndpoint.anthropic);
+    getModelMaxTokens('claude-newfamily-1', EModelEndpoint.anthropic);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('claude-newfamily-1');
+    warn.mockRestore();
+  });
+
+  it('stays silent for Claude models with their own entry', () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    getModelMaxTokens('claude-haiku-5-5', EModelEndpoint.anthropic);
+    getModelMaxTokens('claude-haiku-4-5', EModelEndpoint.anthropic);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 
