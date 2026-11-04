@@ -17,6 +17,8 @@ endpoints:
       titleModel: current_model
       models:
         default: [glm5.2]
+      tokenConfig:
+        glm5.2: { prompt: 1, completion: 3, context: 131072 }
 agentBuilder:
   spec: auto-sonnet
 modelFallback:

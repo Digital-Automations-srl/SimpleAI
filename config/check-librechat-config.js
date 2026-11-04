@@ -75,6 +75,86 @@ function checkTitleModels(endpoints, env, problems) {
 }
 
 /**
+ * Versione di rilascio nel nome di un modello: `claude-haiku-5-5` → `5.5`, `qwen3.8-27b` → `3.8`.
+ * Si ferma prima di taglie (`27b`, `122b`) e date (`-20250929`).
+ */
+function releaseVersion(name) {
+  const m = name.match(/(?<![\d.])\d{1,2}(?:[.-]\d{1,2}(?![\da-z]))*/i);
+  return m ? m[0].replace(/-/g, '.') : '';
+}
+
+/** La voce trovata in tabella è del modello stesso e non di una versione o famiglia generica. */
+function coversModel(key, model, gptPointReleaseFamily) {
+  if (key == null) {
+    return false;
+  }
+  const keyVersion = releaseVersion(key);
+  const family = gptPointReleaseFamily(model);
+  return (
+    keyVersion === releaseVersion(model) ||
+    (family != null && keyVersion === releaseVersion(family))
+  );
+}
+
+function loadModelTables() {
+  const api = require('@librechat/api');
+  const { tokenValues } = require('@librechat/data-schemas');
+  const { gptPointReleaseFamily } = require('librechat-data-provider');
+  return {
+    findMatchingPattern: api.findMatchingPattern,
+    maxTokensMap: api.maxTokensMap,
+    tokenValues,
+    gptPointReleaseFamily,
+  };
+}
+
+function configuredModels(endpoints, env) {
+  const azure = asArray(endpoints.azureOpenAI?.groups).flatMap((g) =>
+    modelNames(g.models).map((model) => ({ endpoint: 'azureOpenAI', model })),
+  );
+  const anthropic = modelNames(endpoints.anthropic?.vertex?.models).map((model) => ({
+    endpoint: 'anthropic',
+    model,
+  }));
+  const google = endpoints.google
+    ? (envModels(env, 'GOOGLE_MODELS') ?? []).map((model) => ({ endpoint: 'google', model }))
+    : [];
+  const custom = asArray(endpoints.custom).flatMap((c) =>
+    modelNames(c.models?.default).map((model) => ({
+      endpoint: 'custom',
+      model,
+      override: c.tokenConfig?.[model],
+    })),
+  );
+  return [...azure, ...anthropic, ...google, ...custom];
+}
+
+/**
+ * Un modello configurato che non ha una voce propria nelle tabelle di contesto (`tokens.ts`) e
+ * di prezzo (`tx.ts`) parte lo stesso, ma con valori di ripiego: contesto potato a 32K o a 100K,
+ * addebito a tariffa generica. Un `tokenConfig` completo sull'endpoint custom lo copre.
+ */
+function checkModelTables(endpoints, env, problems, tables) {
+  for (const { endpoint, model, override } of configuredModels(endpoints, env)) {
+    if (override?.context != null && override.prompt != null && override.completion != null) {
+      continue;
+    }
+    const ctxKey = tables.findMatchingPattern(model, tables.maxTokensMap[endpoint] ?? {});
+    if (!coversModel(ctxKey, model, tables.gptPointReleaseFamily)) {
+      problems.push(
+        `modello "${model}" (${endpoint}): contesto non in tabella (voce trovata: ${ctxKey ? `"${ctxKey}"` : 'nessuna'})`,
+      );
+    }
+    const priceKey = tables.findMatchingPattern(model, tables.tokenValues);
+    if (!coversModel(priceKey, model, tables.gptPointReleaseFamily)) {
+      problems.push(
+        `modello "${model}" (${endpoint}): prezzo non in tabella (voce trovata: ${priceKey ? `"${priceKey}"` : 'nessuna'})`,
+      );
+    }
+  }
+}
+
+/**
  * `engineTTS` è un'impostazione per-utente del client (localStorage, selezionabile dalle
  * impostazioni vocali), quindi il TTS server è raggiungibile dagli utenti a prescindere dal yaml.
  * Nessuna chiave del yaml lo impedisce: `speechTab.textToSpeech: false` è solo un default che
@@ -93,12 +173,13 @@ function checkTts(cfg, problems) {
   }
 }
 
-function checkLibrechatConfig(yamlText, env = {}) {
+function checkLibrechatConfig(yamlText, env = {}, tables = loadModelTables()) {
   const cfg = yaml.load(yamlText) ?? {};
   const problems = [];
   const specs = new Set(asArray(cfg.modelSpecs?.list).map((s) => s.name));
 
   checkTitleModels(cfg.endpoints ?? {}, env, problems);
+  checkModelTables(cfg.endpoints ?? {}, env, problems, tables);
 
   for (const tier of asArray(cfg.modelFallback?.tiers)) {
     for (const name of asArray(tier)) {

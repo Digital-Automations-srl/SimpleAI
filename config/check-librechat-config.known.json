@@ -10,5 +10,21 @@
   {
     "problem": "speech: speech.tts non configurato ma il TTS server è raggiungibile dagli utenti (motore esterno selezionabile)",
     "ref": "design §8 — TTS non configurato ma pulsante audio attivo"
+  },
+  {
+    "problem": "modello \"glm5.2\" (custom): contesto non in tabella (voce trovata: nessuna)",
+    "ref": "Regolo: modello senza voce in tokens.ts/tx.ts né tokenConfig sull endpoint custom"
+  },
+  {
+    "problem": "modello \"glm5.2\" (custom): prezzo non in tabella (voce trovata: nessuna)",
+    "ref": "Regolo: modello senza voce in tokens.ts/tx.ts né tokenConfig sull endpoint custom"
+  },
+  {
+    "problem": "modello \"qwen3.5-122b\" (custom): prezzo non in tabella (voce trovata: \"qwen3\")",
+    "ref": "Regolo: modello senza voce in tokens.ts/tx.ts né tokenConfig sull endpoint custom"
+  },
+  {
+    "problem": "modello \"qwen3.8-27b\" (custom): prezzo non in tabella (voce trovata: \"qwen3\")",
+    "ref": "Regolo: modello senza voce in tokens.ts/tx.ts né tokenConfig sull endpoint custom"
   }
 ]

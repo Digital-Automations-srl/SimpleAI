@@ -80,6 +80,64 @@ speech:
   });
 });
 
+describe('tabelle di contesto e prezzo dei modelli', () => {
+  const withCustom = (model, tokenConfig = '') =>
+    `endpoints:\n  custom:\n    - name: X\n      models:\n        default: ["${model}"]\n${tokenConfig}`;
+  const modelProblems = (y, env) =>
+    checkLibrechatConfig(y, env).filter((p) => p.startsWith('modello '));
+
+  it('modelli con voci proprie (anche point release GPT): nessun problema', () => {
+    const y = `endpoints:
+  azureOpenAI:
+    groups:
+      - group: D
+        models:
+          gpt-6.1-sol: { deploymentName: gpt-6.1-sol }
+          gpt-5.6-terra: { deploymentName: gpt-5.6-terra }
+  anthropic:
+    vertex:
+      models:
+        claude-haiku-5-5: { deploymentName: claude-haiku-5-5 }
+        claude-sonnet-5-5: { deploymentName: claude-sonnet-5-5 }
+`;
+    expect(modelProblems(y)).toEqual([]);
+  });
+
+  it('modello assente dalle tabelle: segnala contesto e prezzo', () => {
+    const p = modelProblems(withCustom('glm5.2'));
+    expect(p.some((x) => x.includes('"glm5.2"') && x.includes('contesto'))).toBe(true);
+    expect(p.some((x) => x.includes('"glm5.2"') && x.includes('prezzo'))).toBe(true);
+  });
+
+  it('modello che cade su una voce di versione diversa: segnala il prezzo', () => {
+    const p = modelProblems(withCustom('qwen3.8-27b'));
+    expect(
+      p.some((x) => x.includes('"qwen3.8-27b"') && x.includes('prezzo') && x.includes('"qwen3"')),
+    ).toBe(true);
+    expect(p.some((x) => x.includes('"qwen3.8-27b"') && x.includes('contesto'))).toBe(false);
+  });
+
+  it('Claude sulla voce generica "claude-": segnalato', () => {
+    const y = `endpoints:\n  anthropic:\n    vertex:\n      models:\n        claude-newfamily-1: { deploymentName: x }\n`;
+    const p = modelProblems(y);
+    expect(p.some((x) => x.includes('"claude-newfamily-1"') && x.includes('"claude-"'))).toBe(true);
+  });
+
+  it("tokenConfig completo sull'endpoint custom copre il modello", () => {
+    const tc =
+      '      tokenConfig:\n        glm5.2: { prompt: 1, completion: 3, context: 131072 }\n';
+    expect(modelProblems(withCustom('glm5.2', tc))).toEqual([]);
+  });
+
+  it('controlla anche i modelli di GOOGLE_MODELS', () => {
+    const y = 'endpoints:\n  google:\n    streamRate: 5\n';
+    expect(modelProblems(y, { GOOGLE_MODELS: 'gemini-2.5-flash,gemini-3-flash-preview' })).toEqual(
+      [],
+    );
+    expect(modelProblems(y, { GOOGLE_MODELS: 'gemini-9-ultra' }).length).toBeGreaterThan(0);
+  });
+});
+
 describe('--known', () => {
   const known = (problem) => [{ problem, ref: 'design §8' }];
 
