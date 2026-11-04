@@ -1,6 +1,16 @@
 {
-  "version": "2.3.3",
+  "version": "2.3.4",
   "entries": [
+    {
+      "version": "2.3.4",
+      "date": "2026-11-04",
+      "title": "I file di AIDA dentro Simple AI",
+      "changes": [
+        "Sulle installazioni collegate ad AIDA, il bottone File AIDA in alto apre la gestione file senza cambiare applicazione",
+        "Carichi, scarichi, sposti e rinomini i file di AIDA da una finestra di Simple AI, con lo stesso tema chiaro o scuro",
+        "Claude Haiku 5.5 usa tutta la sua memoria di conversazione e il costo delle sue risposte è calcolato con il suo listino"
+      ]
+    },
     {
       "version": "2.3.3",
       "date": "2026-10-29",
