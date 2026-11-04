@@ -16,6 +16,7 @@ import { useGetStartupConfig } from '~/data-provider';
 import ExportAndShareMenu from './ExportAndShareMenu';
 import SubagentThreadLink from './SubagentThreadLink';
 import BookmarkMenu from './Menus/BookmarkMenu';
+import { AidaFilesButton } from './AidaFiles';
 import AddMultiConvo from './AddMultiConvo';
 import { useHasAccess } from '~/hooks';
 import { cn } from '~/utils';
@@ -121,6 +122,7 @@ function Header({
             isSubmitting={isSubmitting}
           />
         )}
+        <AidaFilesButton />
         <HeaderMenu startupConfig={startupConfig} trace={trace} className="md:hidden" />
         <div className="hidden items-center gap-2 md:flex">
           {trace.show && <TraceButton onClick={trace.open} />}

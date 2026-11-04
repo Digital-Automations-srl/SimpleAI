@@ -2312,6 +2312,8 @@ export const interfaceSchema = z
     webSearch: z.boolean().optional(),
     contextUsage: z.boolean().optional(),
     contextGauge: z.boolean().optional(),
+    /** SimpleAI: base URL of the instance's AIDA; when set the header opens its file manager. */
+    aida: z.object({ url: z.string().url() }).optional(),
     contextCost: z.boolean().optional(),
     feedback: z.boolean().optional(),
     currency: z

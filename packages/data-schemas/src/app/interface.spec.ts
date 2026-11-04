@@ -12,6 +12,19 @@ describe('loadDefaultInterface', () => {
     expect(interfaceConfig?.autoSubmitFromUrl).toBe(true);
   });
 
+  it('forwards the AIDA base URL only when configured', async () => {
+    const configDefaults = getConfigDefaults();
+    const without = await loadDefaultInterface({ config: {}, configDefaults });
+    expect(without?.aida).toBeUndefined();
+
+    const url = 'https://aida-da.digitalautomations.it';
+    const withAida = await loadDefaultInterface({
+      config: { interface: { aida: { url } } },
+      configDefaults,
+    });
+    expect(withAida?.aida).toEqual({ url });
+  });
+
   it('uses the schema default for code highlight throttling when not configured', async () => {
     const interfaceConfig = await loadDefaultInterface({
       config: {},

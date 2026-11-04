@@ -637,6 +637,55 @@ test.describe('SimpleAI agent builder', () => {
   });
 });
 
+test.describe('SimpleAI AIDA files', () => {
+  const AIDA_URL = 'https://aida.e2e.test';
+
+  async function enableAida(page: Page) {
+    await page.route(/\/api\/config$/, async (route) => {
+      const response = await route.fetch();
+      const config = (await response.json()) as { interface?: Record<string, unknown> };
+      await route.fulfill({
+        response,
+        json: { ...config, interface: { ...config.interface, aida: { url: AIDA_URL } } },
+      });
+    });
+    await page.route(`${AIDA_URL}/**`, (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<p>AIDA file manager</p>' }),
+    );
+  }
+
+  test('the button is absent on an instance without AIDA', async ({ page }) => {
+    await openNewChat(page);
+    await expect(page.getByRole('button', { name: 'AIDA files' })).toHaveCount(0);
+  });
+
+  test('opens the AIDA file manager in an unsandboxed iframe that follows the theme', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await enableAida(page);
+    await openNewChat(page);
+
+    await page.getByRole('button', { name: 'AIDA files' }).click();
+    const dialog = page.getByRole('dialog', { name: 'AIDA files' });
+    const iframe = dialog.locator('iframe[title="AIDA files"]');
+    await expect(iframe).toHaveAttribute(
+      'src',
+      `${AIDA_URL}/embed/esplora?skin=simpleai&theme=dark`,
+    );
+    await expect(iframe).not.toHaveAttribute('sandbox');
+    await expect(
+      dialog.frameLocator('iframe[title="AIDA files"]').getByText('AIDA file manager'),
+    ).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(iframe).toHaveAttribute(
+      'src',
+      `${AIDA_URL}/embed/esplora?skin=simpleai&theme=light`,
+    );
+  });
+});
+
 test.describe('SimpleAI share page', () => {
   test('an unknown share id renders without crashing', async ({ page }) => {
     const pageErrors: string[] = [];
