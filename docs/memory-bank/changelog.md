@@ -14,7 +14,106 @@ con numerazione propria (2.x): questo file è il registro tecnico.
 
 ## [Non rilasciato]
 
-### Modifiche non ancora committate — ripiego automatico dei modelli (T145, punti minori)
+## [v0.8.8-simpleai.10] - 2026-11-04
+
+In rilascio su lbc (het-saas-5) dal 2026-11-04, per la prova del bottone AIDA prima dell'evento
+del 10/11.
+
+### File AIDA nella chat (T264)
+
+Richiesta di Tommaso per l'evento del 10/11.
+
+#### Aggiunto
+- Bottone "File AIDA" nell'header della chat: apre in una finestra modale l'iframe della gestione
+  file di AIDA (`<url>/embed/esplora?skin=simpleai&theme=dark|light`). Il tema segue quello attivo
+  e, se cambia, l'iframe si ricarica. Componente `client/src/components/Chat/AidaFiles.tsx`, una
+  riga in `client/src/components/Chat/Header.tsx`, chiave `com_ui_aida_files` in en/it.
+- Il bottone compare solo se nel `librechat.yaml` c'è `interface.aida.url` (indirizzo base
+  dell'AIDA dell'istanza, es. `https://aida-da.digitalautomations.it`). Schema in
+  `packages/data-provider/src/config.ts`, passaggio in `packages/data-schemas/src/app/interface.ts`.
+
+#### Decisioni
+- Iframe senza sandbox: il login AIDA passa da un popup e servono caricamenti e download.
+- Lato AIDA l'origine di ogni istanza va abilitata in `AIDA_EMBED_ORIGINS`: Tommaso ha abilitato
+  tutte le 11 istanze `*.digitalautomations.it` (lbc, studioai, ai, cancellotti, 4bild, lef,
+  verduci, brahma, cimolai, giotto, coesi).
+
+#### Test
+- Unit `client/src/components/Chat/__tests__/AidaFiles.spec.tsx` e
+  `packages/data-schemas/src/app/interface.spec.ts`; e2e describe "SimpleAI AIDA files" in
+  `e2e/specs/mock/simpleai.spec.ts`; mock di `AidaFiles` aggiunto in `Header.stacking.spec.tsx`.
+
+### Modelli: contesto, output e prezzi
+
+#### Aggiunto
+- Claude Haiku 5.5 con contesto 1M e output 128k: `supportsContext1m`/`supportsOutput128k` in
+  `packages/data-provider/src/bedrock.ts`, pattern 128k in `packages/data-provider/src/schemas.ts`,
+  voci `claude-haiku-5-5`/`claude-haiku-5.5` in `packages/api/src/utils/tokens.ts`.
+- Prezzi di Haiku 5.5 in `packages/data-schemas/src/methods/tx.ts`: 0.1/0.5 $/M fino a 100K di
+  prompt, oltre 0.5/2.5 in `premiumTokenValues`; cache 0.125/0.01, oltre 100K 0.625/0.05.
+- Prezzo di `gemini-3-flash` (0.5/3 $/M).
+- Log di avviso, una sola volta per modello, quando un Claude ricade sulla voce generica `claude-`
+  per il contesto (`warnGenericContext` in `tokens.ts`) o per il prezzo (`tx.ts`).
+
+#### Rimosso
+- Commenti sul prezzo introduttivo di Sonnet 5, scaduto il 2026-08-31.
+
+### Controllo della configurazione
+
+#### Aggiunto
+- `config:check`: nuovo controllo `checkModelTables` in `config/check-librechat-config.js`. Ogni
+  modello configurato (azure, anthropic vertex, google da `GOOGLE_MODELS`, custom) deve avere una
+  voce propria di contesto e di prezzo, oppure un `tokenConfig` completo sull'endpoint custom.
+- Registrati come noti in `config/check-librechat-config.known.json` i 4 buchi dei modelli Regolo:
+  glm5.2 (contesto e prezzo), qwen3.5-122b e qwen3.8-27b (prezzo).
+
+### Modificato
+- Novità 2.3.4 in `client/public/changelog.json`.
+
+### Test
+- Unit data-provider (`bedrock`, `schemas`), packages/api (`tokens`, anthropic llm), data-schemas
+  (`tx`, `interface`), config (`check-librechat-config`).
+- Prima del rilascio: unit verdi salvo i fallimenti ambientali noti; e2e mock 371 passati e 7
+  falliti noti (mermaid export, agent-selector-caps, empty-prompts-panel casuale, 4
+  agent-management-files con 401 dal mock OIDC); `e2e:limits` 20 passati e 2 saltati;
+  `config:check` verde.
+
+## [v0.8.8-simpleai.9] - 2026-10-30
+
+In produzione su lbc (het-saas-5) e studio (het-saas-2) dal 2026-10-29, su
+ai.digitalautomations.it (het-saas-1) dal 2026-10-30.
+
+### Corretto
+- Ripiego automatico (T193): il modello di riserva lavora come il primario e riceve istruzioni,
+  strumenti e allegati dell'agente, nel formato del proprio provider. La correzione è una patch
+  `patch-package` su `@librechat/agents` 4.0.1 (`patches/@librechat+agents+4.0.1.patch`),
+  applicata dal `postinstall` del `package.json` di root; il `Dockerfile` copia `patches/` prima
+  di `npm ci` (22db06a9c).
+- La spec scelta dall'utente viene letta dall'endpoint option in `initializeAgent`: il body della
+  richiesta a runtime non la porta, e il ripiego partiva dalla spec sbagliata.
+- Nessun addebito di token se l'utente interrompe la risposta durante il ripiego quando nessun
+  modello ha prodotto output (`isUnbilledFallbackAbort` in `AgentClient`).
+- Il modello di riserva risponde subito: niente retry sul modello in rate limit (`maxRetries: 0`
+  sul primario e sulle riserve intermedie, l'ultima tiene i propri retry).
+- Il log del ripiego nomina il modello che ha fallito davvero e riduce l'errore a una riga.
+- Novità 2.3.3.
+
+### Test
+- Unit su `modelFallback` (gate, build, integrazione del run con la riserva), `initializeAgent` e
+  `AgentClient`; caso D3 della suite limiti (`e2e/specs/limits/d-models.spec.ts`).
+
+### Modificato
+- Rebuild di `client/dist` per v0.8.8-simpleai.9 (d0c8f429c).
+
+### Documentazione
+- `developer_guide.md`: patch su `node_modules` con `patch-package` e cartella `patches/`.
+
+## [v0.8.8-simpleai.8] - 2026-10-29
+
+In produzione su lbc (het-saas-5) e studio (het-saas-2) dal 2026-10-29 (74c90defe, release
+21b4e4891, build c1b4016c4).
+
+### Ripiego automatico dei modelli (T145, punti minori)
 
 #### Corretto
 - La sintesi del contesto scritta da un modello di ripiego non mostra più la nota "Risposto da…".
@@ -34,7 +133,7 @@ con numerazione propria (2.x): questo file è il registro tecnico.
 - Errori di connessione e timeout senza status HTTP **non** attivano il ripiego.
 - Non fatto: la nota visibile già durante lo streaming (richiede un nuovo evento SSE).
 
-### Su branch `feature/suite-e2e-limiti` (committato, non ancora in `main`)
+### Suite E2E sui limiti
 
 #### Test
 - Suite E2E sui limiti (`npm run e2e:limits`, ~4 min): harness con overlay YAML attivo solo con
