@@ -381,4 +381,22 @@ describe('createModelRouter', () => {
     expect(jev.requests).toHaveLength(0);
     expect(store.decisions).toHaveLength(0);
   });
+
+  it('never routes a turn addressed to a saved agent, even with the automatic spec', async () => {
+    const jev = fakeJev(() => ({ status: 200, json: jevResponse('opus', 0.9) }));
+    const store = createStore();
+    const req = request({
+      spec: 'auto',
+      endpoint: EModelEndpoint.agents,
+      agent_id: 'agent_opportunita',
+      text: 'Ciao',
+    });
+
+    await run(req, { ...store, apiKey: 'secret', fetchFn: jev.fetchFn });
+
+    expect(req.body).toMatchObject({ spec: 'auto', endpoint: EModelEndpoint.agents });
+    expect(req.modelRouter).toBeUndefined();
+    expect(jev.requests).toHaveLength(0);
+    expect(store.decisions).toHaveLength(0);
+  });
 });

@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { CheckboxButton } from '@librechat/client';
+import { isAgentsEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
 import type { TConversation, TModelSpec } from 'librechat-data-provider';
 import type { ConvoGenerator } from '~/common';
 import { useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
@@ -24,6 +25,11 @@ function rememberManualSpec(specName: string): void {
   } catch {
     // storage unavailable: switching off falls back to the default spec
   }
+}
+
+/** A chat on a plain model: agents and assistants keep their own model, tools and badges. */
+export function isModelChatEndpoint(endpoint?: string | null): endpoint is string {
+  return !!endpoint && !isAgentsEndpoint(endpoint) && !isAssistantsEndpoint(endpoint);
 }
 
 /** The spec to return to when Auto is switched off: the user's last pick, else the default. */
@@ -78,7 +84,10 @@ function AutoModelToggle({
     [autoSpec, conversation?.spec, modelSpecs, onSelectSpec],
   );
 
-  if (autoSpec == null) {
+  if (
+    autoSpec == null ||
+    !isModelChatEndpoint(conversation?.endpointType ?? conversation?.endpoint)
+  ) {
     return null;
   }
 

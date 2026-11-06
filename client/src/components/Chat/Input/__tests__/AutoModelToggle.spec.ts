@@ -1,5 +1,5 @@
 import type { TModelSpec } from 'librechat-data-provider';
-import { getManualSpec } from '../AutoModelToggle';
+import { getManualSpec, isModelChatEndpoint } from '../AutoModelToggle';
 
 const spec = (name: string, extra: Partial<TModelSpec> = {}): TModelSpec => ({
   name,
@@ -26,5 +26,23 @@ describe('getManualSpec', () => {
   it('never returns the automatic spec itself', () => {
     expect(getManualSpec(specs, 'auto')?.name).toBe('sonnet');
     expect(getManualSpec([specs[0], spec('haiku')], null)?.name).toBe('haiku');
+  });
+});
+
+describe('isModelChatEndpoint', () => {
+  it('offers Auto on plain model chats, custom endpoints included', () => {
+    expect(isModelChatEndpoint('anthropic')).toBe(true);
+    expect(isModelChatEndpoint('custom')).toBe(true);
+  });
+
+  it('hides Auto on agents and assistants, so it can never swap the agent out', () => {
+    expect(isModelChatEndpoint('agents')).toBe(false);
+    expect(isModelChatEndpoint('assistants')).toBe(false);
+    expect(isModelChatEndpoint('azureAssistants')).toBe(false);
+  });
+
+  it('hides Auto until the conversation has an endpoint', () => {
+    expect(isModelChatEndpoint(undefined)).toBe(false);
+    expect(isModelChatEndpoint(null)).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { logger } from '@librechat/data-schemas';
-import { Constants } from 'librechat-data-provider';
+import { Constants, isEphemeralAgentId } from 'librechat-data-provider';
 import type { TModelRouterConfig, TModelSpec } from 'librechat-data-provider';
 import type { CreateRouterDecisionData } from '@librechat/data-schemas';
 import type { NextFunction, Response } from 'express';
@@ -21,6 +21,7 @@ export interface ModelRouterRequestBody extends ModelRouterBody {
   conversationId?: string | null;
   parentMessageId?: string | null;
   compact?: boolean;
+  agent_id?: string;
 }
 
 export interface ModelRouterRequest {
@@ -144,6 +145,7 @@ async function routeRequest(
     body == null ||
     userId == null ||
     routerSpec?.router == null ||
+    !isEphemeralAgentId(body.agent_id) ||
     req.path === '/resume' ||
     body.compact === true
   ) {

@@ -283,6 +283,41 @@ test.describe('SimpleAI automatic model', () => {
     await expect(selector).toBeEnabled();
     await expect(selector).not.toContainText('E2E Automatico');
   });
+
+  /** T292: switching Auto on swaps the conversation onto the router spec and drops the agent. */
+  test('the Auto toggle is not offered while chatting with an agent', async ({ page }) => {
+    await openNewChat(page);
+    await selectMockEndpoint(page, MOCK_ENDPOINTS[0]);
+    const autoToggle = page.getByRole('checkbox', { name: 'Auto' });
+    await expect(autoToggle).toBeVisible();
+
+    const token = await getAccessToken(page);
+    const agentName = uniqueName('E2E Auto Agent');
+    const agent = await requestJson<AgentDetail>(page, {
+      path: '/api/agents',
+      token,
+      method: 'POST',
+      body: {
+        name: agentName,
+        provider: MOCK_ENDPOINTS[0].label,
+        model: MOCK_ENDPOINTS[0].model,
+      },
+    });
+    try {
+      const form = await openAgentBuilder(page);
+      await form.getByRole('combobox', { name: 'Agent', exact: true }).click();
+      await page.getByRole('option', { name: agentName, exact: true }).click();
+      await expect(form.getByLabel('Agent name')).toHaveValue(agentName);
+      await form.getByRole('button', { name: 'Select Agent' }).click();
+      await expect(page.getByTestId('model-selector-button')).toContainText(agentName);
+      await expect(autoToggle).toHaveCount(0);
+
+      await selectMockEndpoint(page, MOCK_ENDPOINTS[0]);
+      await expect(autoToggle).toBeVisible();
+    } finally {
+      await cleanupAgent(page, agent.id);
+    }
+  });
 });
 
 test.describe('SimpleAI model fallback', () => {
