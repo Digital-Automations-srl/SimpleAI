@@ -107,7 +107,7 @@ actions:
 endpoints:
 
   azureOpenAI:
-    titleModel: gpt-5
+    titleModel: gpt-6-luna
     plugins: true
     groups:
       - group: "Default"
@@ -132,7 +132,7 @@ endpoints:
 
   anthropic:
     streamRate: 20
-    titleModel: "claude-haiku-4-5"
+    titleModel: "claude-haiku-5-5"
     titleMethod: "completion"
     vertex:
       region: "global"

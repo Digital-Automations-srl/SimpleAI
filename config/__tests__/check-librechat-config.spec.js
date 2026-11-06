@@ -177,3 +177,19 @@ describe('--known', () => {
     log.mockRestore();
   });
 });
+
+describe('file_produzione/librechat.yaml', () => {
+  const prod = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'file_produzione', 'librechat.yaml'),
+    'utf8',
+  );
+
+  it('ogni titleModel punta a un modello abilitato sul suo endpoint', () => {
+    expect(checkLibrechatConfig(prod).filter((p) => p.includes('titleModel'))).toEqual([]);
+  });
+
+  it('nessun problema di titleModel è tollerato in known.json', () => {
+    const known = JSON.parse(fx('../../check-librechat-config.known.json'));
+    expect(known.filter((k) => k.problem.includes('titleModel'))).toEqual([]);
+  });
+});
