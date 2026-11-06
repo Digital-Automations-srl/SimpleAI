@@ -6,8 +6,8 @@ import type { TConversation, TModelSpec } from 'librechat-data-provider';
 import type { ConvoGenerator } from '~/common';
 import { useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
 import useSelectMention from '~/hooks/Input/useSelectMention';
-import { useLocalize } from '~/hooks';
 import { badgeAccents } from './accents';
+import { useLocalize } from '~/hooks';
 
 export const LAST_MANUAL_SPEC_KEY = 'simpleai_last_manual_spec';
 
