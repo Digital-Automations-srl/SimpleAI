@@ -42,6 +42,7 @@ const {
   encodeAndFormatVideos,
   extractFileContext,
   createScheduleUpstreamTokenProviderResolver,
+  applyProjectInstructions,
 } = require('@librechat/api');
 const {
   ResourceType,
@@ -778,6 +779,13 @@ const initializeClientWithProvider = async ({
    *  custom-endpoint agents reflect configured rates (mirrors the AgentClient
    *  spending path, which reads the same config). */
   usageCost.endpointTokenConfig = primaryConfig.endpointTokenConfig;
+
+  await applyProjectInstructions({
+    agent: primaryConfig,
+    userId: req.user?.id,
+    chatProjectId: endpointOption.chatProjectId,
+    getChatProject: db.getChatProject,
+  });
 
   logger.debug(
     `[initializeClient] Storing tool context for ${primaryConfig.id}: ${primaryConfig.toolDefinitions?.length ?? 0} tools, registry size: ${primaryConfig.toolRegistry?.size ?? '0'}`,

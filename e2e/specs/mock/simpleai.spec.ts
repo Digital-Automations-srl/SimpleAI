@@ -809,6 +809,45 @@ test.describe('SimpleAI AIDA files', () => {
       `${AIDA_URL}/embed/esplora?skin=simpleai&theme=light`,
     );
   });
+
+  /** T265: a new AIDA project starts every chat knowing the role and the AIDA folder. */
+  test('a new AIDA project carries the role and folder as project instructions', async ({
+    page,
+  }) => {
+    await enableAida(page);
+    await page.goto('/projects', { timeout: 10000 });
+    await page.getByRole('button', { name: 'New project' }).first().click();
+
+    const name = uniqueName('E2E AIDA Project');
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'Project name' }).fill(name);
+    await dialog.getByRole('textbox', { name: 'Your role' }).fill('Project Manager');
+    await dialog.getByRole('textbox', { name: 'AIDA folder' }).fill('Clienti/Packaging');
+    const [created] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.request().method() === 'POST' && new URL(res.url()).pathname === '/api/projects',
+      ),
+      dialog.getByRole('button', { name: 'Create project' }).click(),
+    ]);
+    const expected =
+      `Your role in the project "${name}" is Project Manager. Before answering, use AIDA to read ` +
+      `the documents and instructions in the folder "Clienti/Packaging": they hold the rest of ` +
+      `the project's context.`;
+    expect(((await created.json()) as { instructions?: string }).instructions).toBe(expected);
+
+    await expect(page.getByRole('heading', { name })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit project' }).first().click();
+    await expect(page.getByRole('dialog').getByLabel(/Project instructions/)).toHaveValue(expected);
+  });
+
+  test('a project on an instance without AIDA has no AIDA fields', async ({ page }) => {
+    await page.goto('/projects', { timeout: 10000 });
+    await page.getByRole('button', { name: 'New project' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('textbox', { name: 'Project name' })).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: 'AIDA folder' })).toHaveCount(0);
+  });
 });
 
 test.describe('SimpleAI share page', () => {

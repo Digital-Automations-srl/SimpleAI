@@ -87,6 +87,23 @@ describe('ChatProject methods', () => {
     expect(list.projects[0].name).toBe('Customer Alpha Updated');
   });
 
+  it('stores the instructions an AIDA project adds to its chats, trimmed and bounded', async () => {
+    const project = await methods.createChatProject(user, {
+      name: 'AIDA Packaging',
+      instructions: '  Sei il Project Manager del progetto Packaging.  ',
+    });
+    expect(project.instructions).toBe('Sei il Project Manager del progetto Packaging.');
+
+    const projectId = project._id!.toString();
+    const renamed = await methods.updateChatProject(user, projectId, { name: 'AIDA Imballi' });
+    expect(renamed?.instructions).toBe('Sei il Project Manager del progetto Packaging.');
+
+    const updated = await methods.updateChatProject(user, projectId, {
+      instructions: 'x'.repeat(5000),
+    });
+    expect(updated?.instructions).toHaveLength(4000);
+  });
+
   it('filters projects by name or description search', async () => {
     await methods.createChatProject(user, {
       name: 'Customer Alpha',

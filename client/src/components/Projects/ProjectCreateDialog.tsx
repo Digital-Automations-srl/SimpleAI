@@ -22,7 +22,8 @@ import {
   useToastContext,
 } from '@librechat/client';
 import type { TChatProject } from 'librechat-data-provider';
-import { useCreateProjectMutation } from '~/data-provider';
+import { useCreateProjectMutation, useGetStartupConfig } from '~/data-provider';
+import { buildAidaProjectInstructions } from './aidaProject';
 import { useLocalize } from '~/hooks';
 
 type ProjectCreateDialogProps = {
@@ -45,6 +46,10 @@ export default function ProjectCreateDialog({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [aidaRole, setAidaRole] = useState('');
+  const [aidaFolder, setAidaFolder] = useState('');
+  const { data: startupConfig } = useGetStartupConfig();
+  const hasAida = !!startupConfig?.interface?.aida?.url;
   const createProject = useCreateProjectMutation();
   const { showToast } = useToastContext();
 
@@ -59,6 +64,8 @@ export default function ProjectCreateDialog({
   const resetForm = () => {
     setName('');
     setDescription('');
+    setAidaRole('');
+    setAidaFolder('');
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -77,9 +84,17 @@ export default function ProjectCreateDialog({
 
     try {
       const trimmedDescription = description.trim();
+      const instructions = hasAida
+        ? buildAidaProjectInstructions(localize, {
+            name: trimmedName,
+            role: aidaRole,
+            folder: aidaFolder,
+          })
+        : '';
       const project = await createProject.mutateAsync({
         name: trimmedName,
         ...(trimmedDescription ? { description: trimmedDescription } : {}),
+        ...(instructions ? { instructions } : {}),
       });
       resetForm();
       onOpenChange(false);
@@ -134,6 +149,42 @@ export default function ProjectCreateDialog({
                 className="min-h-[4.5rem] bg-transparent"
               />
             </div>
+            {hasAida && (
+              <fieldset className="space-y-3 rounded-lg border border-border-light p-3">
+                <legend className="px-1 text-sm font-medium text-text-primary">
+                  {localize('com_ui_aida_project')}
+                </legend>
+                <p className="text-xs text-text-secondary">
+                  {localize('com_ui_aida_project_hint')}
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor={`${formId}-aida-role`} className="text-sm text-text-primary">
+                    {localize('com_ui_aida_project_role')}
+                  </Label>
+                  <Input
+                    id={`${formId}-aida-role`}
+                    value={aidaRole}
+                    onChange={(event) => setAidaRole(event.target.value)}
+                    placeholder={localize('com_ui_aida_project_role_placeholder')}
+                    maxLength={100}
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${formId}-aida-folder`} className="text-sm text-text-primary">
+                    {localize('com_ui_aida_project_folder')}
+                  </Label>
+                  <Input
+                    id={`${formId}-aida-folder`}
+                    value={aidaFolder}
+                    onChange={(event) => setAidaFolder(event.target.value)}
+                    placeholder={localize('com_ui_aida_project_folder_placeholder')}
+                    maxLength={500}
+                    className="w-full"
+                  />
+                </div>
+              </fieldset>
+            )}
           </form>
         }
         buttons={
