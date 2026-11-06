@@ -155,6 +155,48 @@ function checkModelTables(endpoints, env, problems, tables) {
 }
 
 /**
+ * Un allegato accettato in Automatico viene filtrato a ogni turno con i tipi ammessi
+ * dall'endpoint del modello scelto: un tipo che un candidato non ammette sparisce dalla
+ * cronologia quando il router passa a quel candidato. Solo i tipi che diventano testo:
+ * immagini, audio e video dipendono da cosa il fornitore sa leggere.
+ */
+function checkRouterFileTypes(cfg, problems) {
+  const {
+    mergeFileConfig,
+    fullMimeTypesList,
+    getEndpointFileConfig,
+    hasTextExtractionPath,
+  } = require('librechat-data-provider');
+  const fileConfig = mergeFileConfig(cfg.fileConfig);
+  const accepts = (endpoint, type) =>
+    fileConfig.checkType(type, getEndpointFileConfig({ fileConfig, endpoint }).supportedMimeTypes);
+  const textTypes = fullMimeTypesList.filter(
+    (type) => hasTextExtractionPath(type) && !/^(image|audio|video)\//.test(type),
+  );
+  const specs = new Map(asArray(cfg.modelSpecs?.list).map((s) => [s.name, s]));
+
+  for (const spec of specs.values()) {
+    const routerEndpoint = spec.router && spec.preset?.endpoint;
+    if (!routerEndpoint) {
+      continue;
+    }
+    const accepted = textTypes.filter((type) => accepts(routerEndpoint, type));
+    for (const name of Object.keys(spec.router.candidates ?? {})) {
+      const endpoint = specs.get(name)?.preset?.endpoint;
+      if (!endpoint || endpoint === routerEndpoint) {
+        continue;
+      }
+      const missing = accepted.filter((type) => !accepts(endpoint, type));
+      if (missing.length > 0) {
+        problems.push(
+          `modelSpecs "${spec.name}": allegati ammessi da ${routerEndpoint} ma non da "${name}" (${endpoint}), spariscono quando il router passa a quel modello: ${missing.join(', ')}`,
+        );
+      }
+    }
+  }
+}
+
+/**
  * `engineTTS` è un'impostazione per-utente del client (localStorage, selezionabile dalle
  * impostazioni vocali), quindi il TTS server è raggiungibile dagli utenti a prescindere dal yaml.
  * Nessuna chiave del yaml lo impedisce: `speechTab.textToSpeech: false` è solo un default che
@@ -209,6 +251,7 @@ function checkLibrechatConfig(yamlText, env = {}, tables = loadModelTables()) {
     problems.push(`agentBuilder.spec: "${builderSpec}" non è un name di modelSpecs.list`);
   }
 
+  checkRouterFileTypes(cfg, problems);
   checkTts(cfg, problems);
   return problems;
 }

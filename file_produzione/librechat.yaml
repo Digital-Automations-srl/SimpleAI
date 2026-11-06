@@ -78,6 +78,14 @@ fileConfig:
         - application/vnd.ms-excel
         - application/vnd.ms-powerpoint
         - text/csv
+        # Tipi che diventano testo (codice, markup, dati, OpenDocument, mail): Anthropic li
+        # ammette di suo, quindi in Automatico vanno ammessi anche dagli altri candidati del
+        # router, o l'allegato sparisce quando il turno passa a GPT (T293, config:check).
+        - '^text/'
+        - '^application/(json|xml|yaml|csv|sql|typescript|x-sh|vnd\.coffeescript)$'
+        - '^application/(msexcel|x-msexcel|x-ms-excel|x-excel|x-dos_ms_excel|xls|x-xls)$'
+        - '^application/vnd\.oasis\.opendocument\.(text|spreadsheet|presentation)$'
+        - '^message/rfc822$'
     agents:
       fileLimit: 10
       fileSizeLimit: 25
@@ -96,6 +104,14 @@ fileConfig:
         - application/vnd.ms-excel
         - application/vnd.ms-powerpoint
         - text/csv
+        # Tipi che diventano testo (codice, markup, dati, OpenDocument, mail): Anthropic li
+        # ammette di suo, quindi in Automatico vanno ammessi anche dagli altri candidati del
+        # router, o l'allegato sparisce quando il turno passa a GPT (T293, config:check).
+        - '^text/'
+        - '^application/(json|xml|yaml|csv|sql|typescript|x-sh|vnd\.coffeescript)$'
+        - '^application/(msexcel|x-msexcel|x-ms-excel|x-excel|x-dos_ms_excel|xls|x-xls)$'
+        - '^application/vnd\.oasis\.opendocument\.(text|spreadsheet|presentation)$'
+        - '^message/rfc822$'
   serverFileSizeLimit: 100
   avatarSizeLimit: 2
 

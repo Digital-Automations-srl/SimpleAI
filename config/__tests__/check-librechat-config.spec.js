@@ -178,6 +178,49 @@ describe('--known', () => {
   });
 });
 
+describe('allegati fra i candidati del router', () => {
+  const routerYaml = (fileConfig = '') => `${fileConfig}
+modelSpecs:
+  list:
+    - name: auto
+      preset: { endpoint: anthropic, model: claude-sonnet-5-5 }
+      router:
+        fallback: auto-sonnet
+        candidates: { auto-sonnet: x, auto-luna: y }
+    - name: auto-sonnet
+      preset: { endpoint: anthropic, model: claude-sonnet-5-5 }
+    - name: auto-luna
+      preset: { endpoint: azureOpenAI, model: gpt-6-luna }
+`;
+  const fileTypeProblems = (y) => checkLibrechatConfig(y).filter((p) => p.includes('allegati'));
+
+  it('segnala i tipi testuali ammessi in Automatico che un candidato scarta', () => {
+    const y = routerYaml(`fileConfig:
+  endpoints:
+    default:
+      supportedMimeTypes: [application/pdf, text/plain]
+`);
+    const p = fileTypeProblems(y);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toContain('"auto-luna" (azureOpenAI)');
+    expect(p[0]).toContain('text/html');
+    expect(p[0]).not.toContain('audio/');
+  });
+
+  it('nessun problema se i candidati ammettono gli stessi tipi testuali', () => {
+    const y = routerYaml(`fileConfig:
+  endpoints:
+    default:
+      supportedMimeTypes:
+        - application/pdf
+        - '^text/'
+        - '^application/'
+        - message/rfc822
+`);
+    expect(fileTypeProblems(y)).toEqual([]);
+  });
+});
+
 describe('file_produzione/librechat.yaml', () => {
   const prod = fs.readFileSync(
     path.join(__dirname, '..', '..', 'file_produzione', 'librechat.yaml'),

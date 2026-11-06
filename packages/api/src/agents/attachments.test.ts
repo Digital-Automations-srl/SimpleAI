@@ -99,6 +99,41 @@ describe('agent attachment helpers', () => {
     ]);
   });
 
+  it('does not count the text of a file the provider receives as the original', () => {
+    const stats = collectAgentAttachmentStats([
+      {
+        file_id: 'pdf',
+        bytes: 8,
+        type: 'application/pdf',
+        llmDeliveryPath: 'provider',
+        text: 'abc',
+      },
+    ]);
+    expect(stats.extractedTextChars).toBe(0);
+  });
+
+  it('a PDF uploaded under Anthropic reaches an Azure turn as its extracted text', () => {
+    const pdf = {
+      file_id: 'pdf',
+      bytes: 8,
+      type: 'application/pdf',
+      llmDeliveryPath: 'provider',
+      metadata: { destinationChosen: false },
+      text: 'fatturato 2026',
+    } as IMongoFile;
+    const azure = resolveTurnDeliveryRouting({ agent: { provider: EModelEndpoint.azureOpenAI } });
+    const anthropic = resolveTurnDeliveryRouting({ agent: { provider: EModelEndpoint.anthropic } });
+
+    const [onAzure] = applyTurnDelivery([pdf], { routing: azure });
+    expect(onAzure.llmDeliveryPath).toBe('text');
+    expect(isModelBoundAttachmentFile(onAzure)).toBe(true);
+    expect(collectAgentAttachmentStats([onAzure]).extractedTextChars).toBe(14);
+
+    const [onAnthropic] = applyTurnDelivery([pdf], { routing: anthropic });
+    expect(onAnthropic.llmDeliveryPath).toBe('provider');
+    expect(collectAgentAttachmentStats([onAnthropic]).extractedTextChars).toBe(0);
+  });
+
   it('counts bytes once per repeated model injection when requested', () => {
     const repeated = {
       file_id: 'replayed-pdf',

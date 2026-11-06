@@ -34,6 +34,28 @@ async function dismissChangelogIfShown(page: Page) {
   }
 }
 
+/** A one-page PDF whose text layer holds `text`, readable by the built-in document parser. */
+function textPdf(text: string): string {
+  const content = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = objects.map((object, index) => {
+    const offset = Buffer.byteLength(pdf);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    return offset;
+  });
+  const xrefOffset = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  return `${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+}
+
 async function openNewChat(page: Page) {
   await page.goto(NEW_CHAT_PATH, { timeout: 10000 });
   await dismissChangelogIfShown(page);
@@ -195,6 +217,34 @@ test.describe('SimpleAI composer attachments', () => {
     await expect(page.getByText(notes)).toBeVisible();
     await expect(page.getByText(data)).toBeVisible();
     await expect.poll(() => uploads.length).toBe(2);
+  });
+
+  test('a PDF sent to the provider still reaches a later turn on an endpoint that reads text (T293)', async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    await openNewChat(page);
+    await selectMockEndpoint(page, { label: 'Mock Provider C', model: 'mock-model-c' });
+
+    const marker = uniqueName('pdftext').replace(/[^A-Za-z0-9]/g, '');
+    const name = `${uniqueName('report')}.pdf`;
+    const response = await uploadViaUnifiedButton(page, {
+      name,
+      mimeType: 'application/pdf',
+      content: textPdf(marker),
+    });
+    expect(response.ok()).toBeTruthy();
+    expect((await response.json()).llmDeliveryPath).toBe('provider');
+
+    const label = uniqueName('pdf-first');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
+    await expect(messagesView(page).getByText(replyText(label))).toBeVisible();
+
+    await selectMockEndpoint(page, { label: 'Mock Provider D', model: 'mock-model-d' });
+    await sendMessageAndWaitForCompletion(page, `E2E_ASSERT_HISTORY:${marker}`);
+    await expect(
+      messagesView(page).getByText(`E2E history assertion present: ${marker}`),
+    ).toBeVisible();
   });
 });
 

@@ -252,7 +252,10 @@ export function collectAgentAttachmentStats(
     if (!file) {
       continue;
     }
-    const extractedTextChars = typeof file.text === 'string' ? file.text.length : 0;
+    /* SimpleAI: a document the provider receives as the original sends none of its stored
+     * fallback text, so that text does not count against this turn's text limit. */
+    const extractedTextChars =
+      typeof file.text === 'string' && file.llmDeliveryPath !== 'provider' ? file.text.length : 0;
     if (file.file_id && seenFileIds.has(file.file_id)) {
       if (options.countRepeatedExtractedText === true) {
         stats.extractedTextChars += extractedTextChars;

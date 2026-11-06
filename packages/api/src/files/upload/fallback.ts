@@ -62,6 +62,18 @@ const builtInExtractors: UploadFallbackTextExtractors = { parseDocument, parseTe
 export function getUploadFallbackTextPlan(
   route: UploadFallbackTextRoute,
 ): UploadFallbackTextPlan | null {
+  const isDocument = documentParserMimeTypes.some((pattern) => pattern.test(route.mimeType));
+  /* SimpleAI: an inferred `provider` route re-resolves on every turn, and on an endpoint that
+   * cannot read the original (a PDF moving from Anthropic to Azure in automatic mode) it
+   * becomes `text`. Without text stored here the document then reaches nothing. */
+  if (
+    route.deliveryPath === 'provider' &&
+    !route.destinationChosen &&
+    route.isMessageAttachment &&
+    isDocument
+  ) {
+    return UPLOAD_FALLBACK_TEXT_PLANS.documentParser;
+  }
   if (
     route.endpointConfig?.textFallbackWithoutTools !== true ||
     route.deliveryPath !== 'none' ||
@@ -70,7 +82,7 @@ export function getUploadFallbackTextPlan(
   ) {
     return null;
   }
-  if (documentParserMimeTypes.some((pattern) => pattern.test(route.mimeType))) {
+  if (isDocument) {
     return UPLOAD_FALLBACK_TEXT_PLANS.documentParser;
   }
   return isNativelyReadableText(route.mimeType) ? UPLOAD_FALLBACK_TEXT_PLANS.nativeText : null;

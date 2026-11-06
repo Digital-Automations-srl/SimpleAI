@@ -59,6 +59,28 @@ describe('getUploadFallbackTextPlan', () => {
   it('runs nothing for a file kept on an agent, which no turn delivers as text', () => {
     expect(getUploadFallbackTextPlan({ ...csvRoute, isMessageAttachment: false })).toBeNull();
   });
+
+  describe('document sent to the provider', () => {
+    const pdfRoute = {
+      deliveryPath: 'provider' as const,
+      destinationChosen: false,
+      isMessageAttachment: true,
+      mimeType: 'application/pdf',
+    };
+
+    it('parses it, because a later turn on another endpoint may need it as text', () => {
+      expect(getUploadFallbackTextPlan(pdfRoute)).toBe(UPLOAD_FALLBACK_TEXT_PLANS.documentParser);
+    });
+
+    it('runs nothing for a destination the user chose, or a file kept on an agent', () => {
+      expect(getUploadFallbackTextPlan({ ...pdfRoute, destinationChosen: true })).toBeNull();
+      expect(getUploadFallbackTextPlan({ ...pdfRoute, isMessageAttachment: false })).toBeNull();
+    });
+
+    it('runs nothing for media, which no built-in parser reads', () => {
+      expect(getUploadFallbackTextPlan({ ...pdfRoute, mimeType: 'image/png' })).toBeNull();
+    });
+  });
 });
 
 describe('resolveUploadFallbackText', () => {
