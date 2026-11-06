@@ -42,6 +42,9 @@ const routerDecisionSchema: Schema<IRouterDecision> = new Schema<IRouterDecision
     fallbackReason: {
       type: String,
     },
+    preferredSpec: {
+      type: String,
+    },
     jevModel: {
       type: String,
     },

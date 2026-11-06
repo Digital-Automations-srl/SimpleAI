@@ -8,8 +8,8 @@ import type { RouterHistoryMessage } from './state';
 import type { RouterDecision } from './decide';
 import { applyRouterDecision, getRoutableTools, getRouterConversationFields } from './apply';
 import { buildRouterQuestions, fallbackDecision, resolveRouterDecision } from './decide';
-import { buildRouterState } from './state';
 import { callJev, JevRequestError } from './jev';
+import { buildRouterState } from './state';
 
 export interface ModelRouterState {
   conversation: RouterConversationFields;
@@ -38,6 +38,10 @@ export interface ModelRouterDeps {
     select: string,
   ) => Promise<RouterHistoryMessage[]>;
   createRouterDecision: (data: CreateRouterDecisionData) => Promise<unknown>;
+  getLastRouterSpec: (filter: {
+    user: string;
+    conversationId: string;
+  }) => Promise<string | undefined>;
   apiKey?: string;
   fetchFn?: typeof fetch;
 }
@@ -68,6 +72,22 @@ async function loadHistory(
   }
 }
 
+async function loadPreviousSpec(
+  deps: ModelRouterDeps,
+  userId: string,
+  conversationId?: string | null,
+): Promise<string | undefined> {
+  if (!isStoredConversation(conversationId)) {
+    return undefined;
+  }
+  try {
+    return await deps.getLastRouterSpec({ user: userId, conversationId });
+  } catch (error) {
+    logger.warn('[modelRouter] Previous decision unavailable, routing without it', error);
+    return undefined;
+  }
+}
+
 async function decide(
   config: TModelRouterConfig,
   body: ModelRouterRequestBody,
@@ -79,7 +99,10 @@ async function decide(
   }
 
   const toolKeys = getRoutableTools(config, body.ephemeralAgent);
-  const history = await loadHistory(deps, userId, body.conversationId);
+  const [history, previousSpec] = await Promise.all([
+    loadHistory(deps, userId, body.conversationId),
+    loadPreviousSpec(deps, userId, body.conversationId),
+  ]);
   const state = buildRouterState({
     history,
     parentMessageId: body.parentMessageId,
@@ -98,7 +121,7 @@ async function decide(
       timeoutMs: config.timeoutMs,
       fetchFn: deps.fetchFn,
     });
-    return resolveRouterDecision(config, response, toolKeys);
+    return resolveRouterDecision(config, response, toolKeys, previousSpec);
   } catch (error) {
     logger.warn('[modelRouter] Jev unavailable, using the fallback spec', {
       status: error instanceof JevRequestError ? error.status : undefined,
@@ -184,6 +207,7 @@ async function routeRequest(
         probabilities: decision.probabilities,
         toolProbabilities: decision.toolProbabilities,
         fallbackReason: decision.fallbackReason,
+        preferredSpec: decision.preferredSpec,
         jevModel: decision.jevModel,
         inputTokens: decision.inputTokens,
         latencyMs,

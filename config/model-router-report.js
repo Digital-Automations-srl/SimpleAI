@@ -90,6 +90,7 @@ async function matchResponses(decisions) {
   const tools = new Map();
   let jevTokens = 0;
   let latencyTotal = 0;
+  let kept = 0;
   for (const decision of decisions) {
     const response = responseByDecision.get(decision._id.toString());
     const stats = bySpec.get(decision.spec) ?? {
@@ -113,6 +114,7 @@ async function matchResponses(decisions) {
     if (decision.fallbackReason) {
       fallbacks.set(decision.fallbackReason, (fallbacks.get(decision.fallbackReason) ?? 0) + 1);
     }
+    kept += decision.preferredSpec ? 1 : 0;
     for (const tool of decision.tools ?? []) {
       tools.set(tool, (tools.get(tool) ?? 0) + 1);
     }
@@ -166,6 +168,9 @@ async function matchResponses(decisions) {
   console.log(`  Latenza media: ${Math.round(latencyTotal / decisions.length)} ms`);
   const fallbackTotal = [...fallbacks.values()].reduce((sum, n) => sum + n, 0);
   console.log(`  Fallback: ${fallbackTotal} (${pct(fallbackTotal, decisions.length)})`);
+  console.log(
+    `  Rimasti sul modello precedente (switchMargin): ${kept} (${pct(kept, decisions.length)})`,
+  );
   for (const [reason, count] of fallbacks) {
     console.log(`    - ${reason}: ${count}`);
   }

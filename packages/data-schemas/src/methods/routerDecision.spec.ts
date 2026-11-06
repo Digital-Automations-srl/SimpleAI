@@ -50,3 +50,29 @@ describe('createRouterDecision', () => {
     expect(stored?.createdAt).toBeInstanceOf(Date);
   });
 });
+
+describe('getLastRouterSpec', () => {
+  it("returns the spec of the conversation's latest decision for that user only", async () => {
+    const user = new mongoose.Types.ObjectId();
+    const other = new mongoose.Types.ObjectId();
+    const base = { routerSpec: 'auto', tools: [] };
+
+    await methods.createRouterDecision({ ...base, user, conversationId: 'convo-2', spec: 'haiku' });
+    await methods.createRouterDecision({ ...base, user, conversationId: 'convo-2', spec: 'opus' });
+    await methods.createRouterDecision({
+      ...base,
+      user: other,
+      conversationId: 'convo-2',
+      spec: 'sonnet',
+    });
+    await methods.createRouterDecision({
+      ...base,
+      user,
+      conversationId: 'convo-3',
+      spec: 'sonnet',
+    });
+
+    expect(await methods.getLastRouterSpec({ user, conversationId: 'convo-2' })).toBe('opus');
+    expect(await methods.getLastRouterSpec({ user, conversationId: 'convo-none' })).toBeUndefined();
+  });
+});

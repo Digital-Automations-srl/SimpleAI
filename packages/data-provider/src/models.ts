@@ -110,6 +110,11 @@ export const tModelRouterSchema = z.object({
   timeoutMs: z.number().int().min(100).default(4000),
   minConfidence: z.number().min(0).max(1).default(0),
   toolThreshold: z.number().min(0).max(1).default(0.5),
+  /**
+   * Within a conversation the router keeps the previous turn's spec unless Jev prefers another
+   * by more than this probability: a switch throws away the provider's prompt cache.
+   */
+  switchMargin: z.number().min(0).max(1).default(0.15),
 });
 
 export type TModelRouterConfig = z.infer<typeof tModelRouterSchema>;

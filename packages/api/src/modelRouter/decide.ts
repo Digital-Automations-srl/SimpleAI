@@ -21,6 +21,8 @@ export interface RouterDecision {
   probabilities?: Record<string, number>;
   toolProbabilities?: Record<string, number>;
   fallbackReason?: RouterFallbackReason;
+  /** Jev's choice when the router stayed on the previous spec instead. */
+  preferredSpec?: string;
   jevModel?: string;
   inputTokens?: number;
 }
@@ -61,15 +63,34 @@ export function fallbackDecision(
   return { spec: config.fallback, tools: [], fallbackReason: reason };
 }
 
+/** Staying on the previous spec keeps the prompt cache; only a clearly better choice is worth losing it. */
+function shouldKeepPrevious(
+  config: TModelRouterConfig,
+  answer: { choice: string; confidence: number; probabilities?: Record<string, number> },
+  previousSpec?: string,
+): previousSpec is string {
+  if (
+    previousSpec == null ||
+    previousSpec === answer.choice ||
+    !(previousSpec in config.candidates)
+  ) {
+    return false;
+  }
+  const previous = answer.probabilities?.[previousSpec];
+  return previous != null && answer.confidence - previous <= config.switchMargin;
+}
+
 /**
  * Maps Jev's answers onto a spec and the tools to switch on. An answer outside the configured
  * candidates, or one below `minConfidence`, degrades to the fallback spec; tool answers are
- * kept either way, since they were judged independently of the model choice.
+ * kept either way, since they were judged independently of the model choice. Within a
+ * conversation, a choice close to the previous spec keeps the previous spec (`switchMargin`).
  */
 export function resolveRouterDecision(
   config: TModelRouterConfig,
   response: JevResponse,
   toolKeys: string[],
+  previousSpec?: string,
 ): RouterDecision {
   const toolProbabilities = Object.fromEntries(
     toolKeys.flatMap((key): [string, number][] => {
@@ -96,6 +117,9 @@ export function resolveRouterDecision(
   };
   if (answer.confidence < config.minConfidence) {
     return { ...scored, spec: config.fallback, fallbackReason: 'low_confidence' };
+  }
+  if (shouldKeepPrevious(config, answer, previousSpec)) {
+    return { ...scored, spec: previousSpec, preferredSpec: answer.choice };
   }
   return { ...scored, spec: answer.choice };
 }

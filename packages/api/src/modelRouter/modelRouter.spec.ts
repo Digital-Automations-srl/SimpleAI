@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { EModelEndpoint, tModelRouterSchema } from 'librechat-data-provider';
-import type { TModelSpec } from 'librechat-data-provider';
 import type { CreateRouterDecisionData } from '@librechat/data-schemas';
+import type { TModelSpec } from 'librechat-data-provider';
 import type { Response } from 'express';
 import type { ModelRouterRequest } from './middleware';
 import type { RouterHistoryMessage } from './state';
@@ -46,11 +46,12 @@ function jevResponse(
   choice: string,
   confidence: number,
   tools: Record<string, number> = {},
+  probabilities: Record<string, number> = { [choice]: confidence },
 ): JevResponse {
   return {
     model: 'jev-1.13.0',
     answers: {
-      model: { type: 'choice', choice, confidence, probabilities: { [choice]: confidence } },
+      model: { type: 'choice', choice, confidence, probabilities },
       ...Object.fromEntries(
         Object.entries(tools).map(([key, noul]) => [
           toolQuestionName(key),
@@ -82,11 +83,12 @@ function fakeJev(reply: () => { status: number; json?: unknown }): FakeJev {
   return { fetchFn, requests };
 }
 
-function createStore(history: RouterHistoryMessage[] = []) {
+function createStore(history: RouterHistoryMessage[] = [], previousSpec?: string) {
   const decisions: CreateRouterDecisionData[] = [];
   return {
     decisions,
     getMessages: async () => history,
+    getLastRouterSpec: async () => previousSpec,
     createRouterDecision: async (data: CreateRouterDecisionData) => {
       decisions.push(data);
       return data;
@@ -199,6 +201,30 @@ describe('resolveRouterDecision', () => {
   it('falls back when the answer is not a configured candidate', () => {
     const decision = resolveRouterDecision(routerConfig, jevResponse('gpt-99', 0.9), toolKeys);
     expect(decision).toMatchObject({ spec: 'sonnet', fallbackReason: 'invalid_answer' });
+  });
+
+  it("stays on the previous turn's spec when Jev barely prefers another", () => {
+    const close = jevResponse('haiku', 0.5, {}, { haiku: 0.5, opus: 0.4, sonnet: 0.1 });
+    const decision = resolveRouterDecision(routerConfig, close, toolKeys, 'opus');
+    expect(decision).toMatchObject({ spec: 'opus', preferredSpec: 'haiku', confidence: 0.5 });
+  });
+
+  it('switches when Jev clearly prefers another spec', () => {
+    const clear = jevResponse('haiku', 0.8, {}, { haiku: 0.8, opus: 0.15, sonnet: 0.05 });
+    const decision = resolveRouterDecision(routerConfig, clear, toolKeys, 'opus');
+    expect(decision.spec).toBe('haiku');
+    expect(decision.preferredSpec).toBeUndefined();
+  });
+
+  it('switches on any preference when the margin is zero', () => {
+    const close = jevResponse('haiku', 0.5, {}, { haiku: 0.5, opus: 0.45, sonnet: 0.05 });
+    const config = { ...routerConfig, switchMargin: 0 };
+    expect(resolveRouterDecision(config, close, toolKeys, 'opus').spec).toBe('haiku');
+  });
+
+  it('ignores a previous spec that is no longer a candidate', () => {
+    const close = jevResponse('haiku', 0.5, {}, { haiku: 0.5, retired: 0.45 });
+    expect(resolveRouterDecision(routerConfig, close, toolKeys, 'retired').spec).toBe('haiku');
   });
 });
 
@@ -380,6 +406,19 @@ describe('createModelRouter', () => {
     expect(resumed.body?.spec).toBe('auto');
     expect(jev.requests).toHaveLength(0);
     expect(store.decisions).toHaveLength(0);
+  });
+  it("keeps a stored conversation on its previous spec when Jev's preference is slight", async () => {
+    const jev = fakeJev(() => ({
+      status: 200,
+      json: jevResponse('haiku', 0.5, {}, { haiku: 0.5, opus: 0.42, sonnet: 0.08 }),
+    }));
+    const store = createStore([], 'opus');
+    const req = request({ spec: 'auto', text: 'E adesso?', conversationId: 'convo-1' });
+
+    await run(req, { ...store, apiKey: 'secret', fetchFn: jev.fetchFn });
+
+    expect(req.body).toMatchObject({ spec: 'opus', model: 'claude-opus-4-8' });
+    expect(store.decisions[0]).toMatchObject({ spec: 'opus', preferredSpec: 'haiku' });
   });
 
   it('never routes a turn addressed to a saved agent, even with the automatic spec', async () => {

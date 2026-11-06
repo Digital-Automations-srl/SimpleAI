@@ -24,7 +24,13 @@ const guardSubagentThreadTurn = require('~/server/middleware/validate/subagentTh
 const AgentController = require('~/server/controllers/agents/request');
 const ResumeController = require('~/server/controllers/agents/resume');
 const addTitle = require('~/server/services/Endpoints/agents/title');
-const { getFiles, getRoleByName, getMessages, createRouterDecision } = require('~/models');
+const {
+  getFiles,
+  getRoleByName,
+  getMessages,
+  createRouterDecision,
+  getLastRouterSpec,
+} = require('~/models');
 
 const router = express.Router();
 
@@ -89,6 +95,7 @@ router.use(
   createModelRouter({
     getMessages,
     createRouterDecision,
+    getLastRouterSpec,
     apiKey: process.env.TYPESAFE_API_KEY,
   }),
 );

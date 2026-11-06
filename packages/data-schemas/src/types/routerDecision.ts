@@ -12,6 +12,7 @@ export interface IRouterDecision extends Omit<Document, 'model'> {
   probabilities?: Record<string, number>;
   toolProbabilities?: Record<string, number>;
   fallbackReason?: string;
+  preferredSpec?: string;
   jevModel?: string;
   inputTokens?: number;
   latencyMs?: number;
