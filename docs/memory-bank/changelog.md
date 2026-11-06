@@ -14,6 +14,68 @@ con numerazione propria (2.x): questo file è il registro tecnico.
 
 ## [Non rilasciato]
 
+### Progetto AIDA (T265)
+
+Prototipo chiesto da Tommaso al SAL del 02/11 per l'evento del 10/11 (c6f892a95).
+
+#### Aggiunto
+- Progetti chat: campo `instructions` (max 4000 caratteri) in schema, tipi, metodi e handler. Il
+  server lo aggiunge alle istruzioni aggiuntive dell'agente principale di ogni chat del progetto
+  (`applyProjectInstructions` in `packages/api/src/projects/instructions.ts`, chiamato da
+  `api/server/services/Endpoints/agents/initialize.js`); il progetto si legge con l'utente come
+  proprietario, quindi l'id di un progetto altrui non aggiunge nulla.
+- Dialog "Nuovo progetto": con `interface.aida.url` configurato compare la sezione "Progetto AIDA"
+  (ruolo, cartella AIDA) che genera le istruzioni (`client/src/components/Projects/aidaProject.ts`);
+  senza AIDA il dialog è invariato.
+- Dialog "Modifica progetto": campo "Istruzioni del progetto" per vederle e cambiarle.
+
+#### Decisioni
+- La cartella AIDA si scrive a mano: l'elenco dei repository richiede un'API di AIDA che oggi non
+  usiamo.
+
+#### Test
+- Unit su `applyProjectInstructions`, sul builder delle istruzioni e sui metodi DB di
+  `chatProject`; e2e in `e2e/specs/mock/simpleai.spec.ts`: progetto AIDA creato con ruolo e
+  cartella, istruzioni salvate e visibili in modifica, campi assenti senza AIDA.
+
+### Router Automatico: margine di cambio modello (T291)
+
+#### Aggiunto
+- `router.switchMargin` (default 0.15): in una conversazione già instradata il router resta sulla
+  spec del turno precedente se la probabilità che Jev le dà è entro il margine da quella della sua
+  scelta, per non buttare la cache del prompt del provider su differenze minime. `0` riporta al
+  comportamento di prima (43bf9cde0).
+- La spec precedente si legge dall'ultima decisione della conversazione (`getLastRouterSpec` in
+  data-schemas, filtrata per utente); se non è più candidata o la lettura fallisce si decide come
+  prima.
+- Campo `preferredSpec` nelle decisioni del router (la scelta di Jev non seguita);
+  `config/model-router-report.js` conta i turni rimasti sul modello precedente.
+
+#### Test
+- Unit su `resolveRouterDecision` (resta, cambia, margine 0, spec non più candidata), middleware
+  con conversazione esistente, metodo DB.
+
+### Corretto
+- Router Automatico (T292): con un agente il pulsante «Auto» non compare più e il router non
+  instrada un turno indirizzato a un agente salvato (`agent_id` `agent_…`), anche se la richiesta
+  porta la spec automatica. Prima attivarlo sostituiva l'agente (es. Scheda Opportunità SGO) con la
+  spec automatica. Il toggle usa `isModelChatEndpoint` (in `AutoModelToggle.tsx`), la stessa
+  condizione con cui `BadgeRow` nasconde i badge effimeri, ora condivisa invece di essere riscritta
+  in `ChatForm` (ec9445999; riordino import in c371ceba8).
+- Chat continuata da link condiviso (T335): sotto gli allegati senza `file_id` (fuori dalla pagina
+  del link) compare l'avviso che il modello non li legge più e vanno ricaricati (`Files.tsx`, chiave
+  `com_ui_shared_files_detached` en/it, chiave React di riserva per i file senza `file_id`).
+  Scelta: avviso invece della copia dei file al nuovo proprietario, che duplicherebbe record,
+  storage, testo estratto, embedding, retention e tenant e allargherebbe l'accesso oltre la lettura
+  del link (15f33d4cd).
+
+### Test
+- T292: unit su `isModelChatEndpoint` e sul middleware del router (fallisce senza la guardia); e2e
+  in `simpleai.spec.ts`: con un agente selezionato il checkbox «Auto» non c'è, tornando al modello
+  ricompare.
+- T335: unit su `Files` (avviso sì/no, niente avviso sulla pagina del link); e2e in
+  `simpleai.spec.ts`: chat con allegato, link condiviso, fork, avviso visibile.
+
 ## [v0.8.8-simpleai.10] - 2026-11-04
 
 In rilascio su lbc (het-saas-5) dal 2026-11-04, per la prova del bottone AIDA prima dell'evento
