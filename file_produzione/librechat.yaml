@@ -145,8 +145,6 @@ endpoints:
           deploymentName: claude-sonnet-5-5
         "claude-opus-5-5":
           deploymentName: claude-opus-5-5
-        "claude-fable-5-1":
-          deploymentName: claude-fable-5-1
 
   # Regolo: un fornitore per modello, ognuno con la propria chiave (consumi
   # separati per macchina e modello). Le chiavi stanno solo nelle variabili.
