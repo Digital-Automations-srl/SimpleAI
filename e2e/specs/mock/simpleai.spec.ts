@@ -168,6 +168,46 @@ test.describe('SimpleAI agent categories', () => {
 });
 
 test.describe('SimpleAI composer attachments', () => {
+  /** T335: a chat continued from a shared link keeps the file names but not the files. */
+  test('a chat continued from a shared link warns that its attachments are not read', async ({
+    page,
+  }) => {
+    await openNewChat(page);
+    await selectMockEndpoint(page, MOCK_ENDPOINTS[1]);
+    const name = `${uniqueName('shared')}.txt`;
+    const upload = await uploadViaUnifiedButton(page, {
+      name,
+      mimeType: 'text/plain',
+      content: 'attachment owned by whoever shared the chat',
+    });
+    expect(upload.ok()).toBeTruthy();
+    const label = uniqueName('shared-files');
+    await sendMessageAndWaitForCompletion(page, replyPrompt(label));
+    await expect(page.getByRole('note')).toHaveCount(0);
+
+    await expect(page).toHaveURL(/\/c\/(?!new)[0-9a-fA-F-]{36}$/);
+    const conversationId = new URL(page.url()).pathname.split('/').pop() ?? '';
+    const token = await getAccessToken(page);
+    const share = await requestJson<{ shareId: string }>(page, {
+      path: `/api/share/${conversationId}`,
+      token,
+      method: 'POST',
+      body: {},
+    });
+    const fork = await requestJson<{ conversation: { conversationId: string } }>(page, {
+      path: `/api/share/${encodeURIComponent(share.shareId)}/fork`,
+      token,
+      method: 'POST',
+      body: {},
+    });
+
+    await page.goto(`/c/${fork.conversation.conversationId}`);
+    await expect(messagesView(page).getByText(name)).toBeVisible();
+    await expect(messagesView(page).getByRole('note')).toHaveText(
+      'These attachments come from a shared chat: the model can no longer read them. Upload them again if you need them.',
+    );
+  });
+
   test('switching model in an unsent chat keeps the attached files (#16636)', async ({ page }) => {
     await openNewChat(page);
     await selectMockEndpoint(page, MOCK_ENDPOINTS[1]);

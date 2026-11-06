@@ -1947,6 +1947,7 @@
   "com_ui_share_qr_code_description": "Codice QR per condividere questo link di conversazione",
   "com_ui_share_update_message": "Il tuo nome, istruzioni personalizzate e qualsiasi messaggio aggiunto dopo la condivisione rimarranno privati.",
   "com_ui_share_var": "Condividi {{0}}",
+  "com_ui_shared_files_detached": "Questi allegati vengono da una chat condivisa: il modello non li legge più. Caricali di nuovo se ti servono.",
   "com_ui_shared_link": "link condiviso",
   "com_ui_shared_link_bulk_delete_success": "Link condivisi eliminati con successo",
   "com_ui_shared_link_delete_success": "Link condiviso eliminato con successo",

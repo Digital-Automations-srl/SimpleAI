@@ -4,9 +4,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { TMessage } from 'librechat-data-provider';
 import Files from '../Files';
 
+let mockShareId: string | undefined;
+
 jest.mock('~/Providers', () => ({
   useFileMapContext: () => ({}),
-  useShareContext: () => ({}),
+  useShareContext: () => ({ shareId: mockShareId }),
+}));
+jest.mock('~/hooks', () => ({
+  useLocalize: () => (key: string) => key,
 }));
 jest.mock(
   '~/components/Chat/Input/Files/FileContainer',
@@ -42,4 +47,28 @@ it('exposes extracted image text without changing ordinary image previews', () =
   expect(screen.getByTestId('image-preview')).toHaveAttribute('data-aligned-right', 'true');
   fireEvent.click(screen.getByText('file action'));
   expect(screen.getByText('preview: text')).toBeInTheDocument();
+});
+
+describe('attachments copied from a shared link', () => {
+  const sharedCopy = { files: [{ filename: 'offerta.pdf', type: 'application/pdf' }] } as TMessage;
+
+  beforeEach(() => {
+    mockShareId = undefined;
+  });
+
+  it('warns that the model no longer reads them', () => {
+    render(<Files message={sharedCopy} />);
+    expect(screen.getByRole('note')).toHaveTextContent('com_ui_shared_files_detached');
+  });
+
+  it('says nothing about files the model still reads', () => {
+    render(<Files message={{ files: [{ file_id: 'f1', type: 'application/pdf' }] } as TMessage} />);
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('says nothing on the shared link itself', () => {
+    mockShareId = 'share-1';
+    render(<Files message={sharedCopy} />);
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
 });

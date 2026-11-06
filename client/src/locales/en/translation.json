@@ -2402,6 +2402,7 @@
   "com_ui_share_target_not_saved": "The latest message has not finished saving. Try sharing again in a moment.",
   "com_ui_share_update_message": "Your name and custom instructions stay private. Edits to shared messages appear right away; select Update link to include new messages without changing the URL.",
   "com_ui_share_var": "Share {{0}}",
+  "com_ui_shared_files_detached": "These attachments come from a shared chat: the model can no longer read them. Upload them again if you need them.",
   "com_ui_shared_link": "shared link",
   "com_ui_shared_link_bulk_delete_success": "Successfully deleted shared links",
   "com_ui_shared_link_delete_success": "Successfully deleted shared link",
