@@ -14,6 +14,25 @@ con numerazione propria (2.x): questo file è il registro tecnico.
 
 ## [Non rilasciato]
 
+## [v0.8.8-simpleai.11] - 2026-11-06
+
+Novità 2.3.5. Contiene anche T293, T287 e T295, committati dopo la `.10`.
+
+### Allegati in modalità Automatico (T293)
+
+#### Corretto
+- I tipi testuali (html, markdown, json, codice, OpenDocument, mail) sono ammessi anche da
+  `default`/`agents` nel yaml, come già da Anthropic: prima sparivano dalla cronologia nei turni
+  instradati su GPT. Un documento inviato al provider salva anche il testo estratto, così un turno
+  successivo su un endpoint che lo legge come testo (PDF da Claude a GPT) lo riceve; il limite sul
+  testo estratto non conta i file inviati come originale (381e150d6).
+- `config:check` segnala i tipi testuali ammessi in Automatico ma scartati da un candidato.
+
+### Config
+- `titleModel` su modelli abilitati (anthropic `claude-haiku-5-5`, azure `gpt-6-luna`) e
+  `config:check` non tollera più quelli non disponibili (T287, 157258ee8).
+- Rimosso `claude-fable-5-1` dai modelli Vertex (T295, a23786eb3).
+
 ### Progetto AIDA (T265)
 
 Prototipo chiesto da Tommaso al SAL del 02/11 per l'evento del 10/11 (c6f892a95).

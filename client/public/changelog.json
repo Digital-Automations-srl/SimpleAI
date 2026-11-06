@@ -1,6 +1,19 @@
 {
-  "version": "2.3.4",
+  "version": "2.3.5",
   "entries": [
+    {
+      "version": "2.3.5",
+      "date": "2026-11-06",
+      "title": "Progetti AIDA e modalità automatica più stabile",
+      "changes": [
+        "Sulle installazioni collegate ad AIDA, creando un progetto indichi il tuo ruolo e la cartella AIDA: ogni chat del progetto parte già con quel contesto",
+        "Nella modifica di un progetto puoi vedere e cambiare le istruzioni che valgono per tutte le sue chat",
+        "In modalità automatica la conversazione resta sullo stesso modello se un altro è preferibile solo di poco: le risposte arrivano prima e costano meno",
+        "Gli allegati non si perdono più quando la modalità automatica passa a un altro modello",
+        "Con un agente selezionato il pulsante Auto non compare più, così l'agente non viene sostituito",
+        "Nelle chat continuate da un link condiviso, un avviso segnala che gli allegati vanno ricaricati"
+      ]
+    },
     {
       "version": "2.3.4",
       "date": "2026-11-04",
